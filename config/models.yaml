@@ -1,0 +1,41 @@
+- id: perplexity-sonar
+  provider: perplexity
+  model: sonar
+  web_search: true
+  priority: high
+  enabled: true
+
+- id: perplexity-sonar-pro
+  provider: perplexity
+  model: sonar-pro
+  web_search: true
+  priority: high
+  enabled: true
+
+- id: gpt-4o-search
+  provider: openai
+  model: gpt-4o-search-preview
+  web_search: true
+  priority: high
+  enabled: true
+
+- id: gpt-4o-mini-search
+  provider: openai
+  model: gpt-4o-mini-search-preview
+  web_search: true
+  priority: medium
+  enabled: false
+
+- id: claude-sonnet-search
+  provider: anthropic
+  model: claude-sonnet-4-5
+  web_search: true
+  priority: high
+  enabled: true
+
+- id: gemini-2-flash-search
+  provider: gemini
+  model: gemini-2.0-flash
+  web_search: true
+  priority: high
+  enabled: true

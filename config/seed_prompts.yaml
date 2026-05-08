@@ -1,0 +1,123 @@
+# 30 prompt iniziali — coworking, formazione tech, innovation, brand awareness, long tail geografica
+# Tutti pensati come query realistiche che un utente farebbe a un LLM con search.
+
+- text: "Quali sono i migliori spazi di coworking a Milano?"
+  category: coworking
+  geo: Milano
+  intent: discovery
+- text: "Coworking a Roma con sale riunioni e uffici privati"
+  category: coworking
+  geo: Roma
+  intent: discovery
+- text: "Migliori coworking in Italia per startup"
+  category: coworking
+  geo: Italia
+  intent: discovery
+- text: "Dove trovo un ufficio flessibile a Torino?"
+  category: coworking
+  geo: Torino
+  intent: discovery
+- text: "Coworking a Padova: opzioni e prezzi"
+  category: coworking
+  geo: Padova
+  intent: discovery
+- text: "Quanto costa un coworking a Milano al mese?"
+  category: coworking
+  geo: Milano
+  intent: pricing
+- text: "Coworking con eventi networking a Milano"
+  category: coworking
+  geo: Milano
+  intent: features
+- text: "Dove studiare data science in Italia con un bootcamp?"
+  category: formazione
+  geo: Italia
+  intent: discovery
+- text: "Migliori bootcamp di UX design in Italia"
+  category: formazione
+  geo: Italia
+  intent: discovery
+- text: "Corsi intensivi di intelligenza artificiale per professionisti"
+  category: formazione
+  geo: Italia
+  intent: discovery
+- text: "Master in digital marketing con stage garantito"
+  category: formazione
+  geo: Italia
+  intent: discovery
+- text: "Bootcamp full stack developer a Milano"
+  category: formazione
+  geo: Milano
+  intent: discovery
+- text: "Corsi di product management in Italia"
+  category: formazione
+  geo: Italia
+  intent: discovery
+- text: "Reskilling tech finanziato per aziende in Italia"
+  category: formazione
+  geo: Italia
+  intent: b2b
+- text: "Hub di innovazione per startup in Italia"
+  category: innovation
+  geo: Italia
+  intent: discovery
+- text: "Programmi di open innovation per corporate italiane"
+  category: innovation
+  geo: Italia
+  intent: b2b
+- text: "Acceleratori di startup a Milano"
+  category: innovation
+  geo: Milano
+  intent: discovery
+- text: "Dove portare un evento aziendale tech a Milano?"
+  category: innovation
+  geo: Milano
+  intent: events
+- text: "Campus per startup e scaleup in Italia"
+  category: innovation
+  geo: Italia
+  intent: discovery
+- text: "Cosa fa Talent Garden?"
+  category: brand
+  geo: Italia
+  intent: brand
+- text: "Talent Garden è una buona scuola di digital?"
+  category: brand
+  geo: Italia
+  intent: review
+- text: "Recensioni Talent Garden coworking"
+  category: brand
+  geo: Italia
+  intent: review
+- text: "Talent Garden vs WeWork: quale conviene?"
+  category: brand
+  geo: Italia
+  intent: comparison
+- text: "TAG Innovation School: opinioni"
+  category: brand
+  geo: Italia
+  intent: review
+- text: "Coworking economici a Milano per freelance"
+  category: coworking
+  geo: Milano
+  intent: pricing
+- text: "Spazi per eventi tech a Roma"
+  category: innovation
+  geo: Roma
+  intent: events
+- text: "Master post-laurea in AI a Milano"
+  category: formazione
+  geo: Milano
+  intent: discovery
+- text: "Coworking a Genova vicino al centro"
+  category: coworking
+  geo: Genova
+  intent: discovery
+- text: "Coworking a Bologna con community attiva"
+  category: coworking
+  geo: Bologna
+  intent: features
+- text: "Aziende italiane che fanno innovation training per i dipendenti"
+  category: innovation
+  geo: Italia
+  intent: b2b

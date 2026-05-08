@@ -1,0 +1,91 @@
+name: Weekly LLM Visibility Batch
+
+# Trigger:
+# - Lunedì alle 06:00 UTC (08:00 ora italiana legale, 07:00 ora solare)
+# - Manuale via "Run workflow" dalla UI di GitHub
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: 'Numero di ripetizioni per (prompt × modello)'
+        required: false
+        default: '3'
+
+jobs:
+  run-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Restore DB from previous run (best-effort)
+        uses: actions/download-artifact@v4
+        with:
+          name: llm-visibility-db
+          path: .
+        continue-on-error: true
+
+      - name: Seed DB if missing
+        run: |
+          if [ ! -f llm_visibility.db ]; then
+            echo "DB non trovato: eseguo seed iniziale"
+            python -m scripts.seed_db
+          else
+            echo "DB ripristinato dall'artifact precedente"
+            # Garantisce che eventuali nuovi prompt nel YAML siano aggiunti idempotentemente
+            python -m scripts.seed_db
+          fi
+
+      - name: Run batch with alerts
+        run: |
+          python -m scripts.run_batch_with_alerts \
+            --repeat "${{ github.event.inputs.repeat || '3' }}"
+
+      - name: Upload DB snapshot
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: llm-visibility-db
+          path: llm_visibility.db
+          retention-days: 90
+          overwrite: true
+
+      - name: Upload run summary
+        if: always()
+        run: |
+          python -c "
+          from sqlalchemy import select, desc
+          from src.storage import get_session, Run, Response
+          from sqlalchemy import func
+          with get_session() as s:
+              r = s.scalars(select(Run).order_by(desc(Run.id))).first()
+              if r:
+                  n = s.scalar(select(func.count(Response.id)).where(Response.run_id == r.id)) or 0
+                  n_cit = s.scalar(select(func.count(Response.id)).where(Response.run_id == r.id, Response.has_target_citation.is_(True))) or 0
+                  rate = (n_cit / n) if n else 0
+                  print(f'## Run #{r.id}')
+                  print(f'- Risposte: {n}')
+                  print(f'- Citation rate: {rate:.1%}')
+          " >> $GITHUB_STEP_SUMMARY

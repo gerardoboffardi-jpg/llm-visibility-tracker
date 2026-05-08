@@ -1,0 +1,41 @@
+target:
+  name: "Talent Garden"
+  domain: "talentgarden.com"
+  aliases:
+    - "Talent Garden"
+    - "TAG"
+    - "talentgarden"
+    - "Talent-Garden"
+  additional_domains: []
+
+competitors:
+  - name: "WeWork"
+    aliases: ["WeWork", "We Work"]
+    domains: ["wework.com"]
+  - name: "Copernico"
+    aliases: ["Copernico"]
+    domains: ["copernicomilano.it", "copernico.it"]
+  - name: "Spaces"
+    aliases: ["Spaces"]
+    domains: ["spacesworks.com"]
+  - name: "Regus"
+    aliases: ["Regus"]
+    domains: ["regus.com", "regus.it"]
+  - name: "Impact Hub"
+    aliases: ["Impact Hub"]
+    domains: ["impacthub.net", "milan.impacthub.net"]
+  - name: "Talent Garden Innovation School"
+    aliases: ["Innovation School"]
+    domains: ["innovationschool.it"]
+  - name: "H-FARM"
+    aliases: ["H-FARM", "HFARM"]
+    domains: ["h-farm.com", "hfarm.com"]
+  - name: "LVenture"
+    aliases: ["LVenture", "LVenture Group"]
+    domains: ["lventuregroup.com"]
+  - name: "Industrious"
+    aliases: ["Industrious"]
+    domains: ["industriousoffice.com"]
+  - name: "Mindspace"
+    aliases: ["Mindspace"]
+    domains: ["mindspace.me"]
