@@ -1,14 +1,22 @@
 """Citations — esplora tutte le URL citate aggregate."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import pandas as pd
 import streamlit as st
 from sqlalchemy import func, select
 
+from dashboard.auth import require_password
 from dashboard.utils import domain_aggregates
 from src.storage import Citation, Response, get_session
 
 st.set_page_config(page_title="Citations", page_icon="🔗", layout="wide")
+if not require_password():
+    st.stop()
+
 st.title("🔗 Citations Explorer")
 
 st.caption("Esplora tutte le URL citate dagli LLM. Le citazioni sono cittadini di prima classe in questa dashboard.")

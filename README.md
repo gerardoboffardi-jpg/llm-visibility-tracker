@@ -74,6 +74,48 @@ llm-visibility-tracker/
 5. **Citations** — esplora URL aggregate (target, competitor, neutri ricorrenti)
 6. **Models** — confronto performance modelli
 
+## Deploy su Streamlit Community Cloud (gratis, link condivisibile)
+
+### 1. Database Postgres su Supabase (gratis)
+
+1. Crea un progetto su [supabase.com](https://supabase.com) → region **Frankfurt**
+2. Dopo creazione → **Settings → Database → Connection string** → tab "URI"
+3. Spunta "Use connection pooling" (importante per Streamlit Cloud)
+4. Copia la stringa, formato:
+   ```
+   postgresql://postgres.xxxxxx:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+   ```
+5. Sostituisci `[YOUR-PASSWORD]` con la password del DB
+
+### 2. Streamlit Community Cloud
+
+1. Vai su [share.streamlit.io](https://share.streamlit.io) → sign in con GitHub
+2. "Create app" → seleziona repo `llm-visibility-tracker`, branch `main`, main file `dashboard/app.py`
+3. Prima del deploy clicca **Advanced settings → Secrets** e incolla (vedi `.streamlit/secrets.toml.example`):
+   ```toml
+   APP_PASSWORD = "una-password-condivisa"
+   DATABASE_URL = "postgresql://..."  # da Supabase
+   ANTHROPIC_API_KEY = "sk-ant-..."
+   OPENAI_API_KEY = "sk-..."
+   GOOGLE_API_KEY = "AIza..."
+   PERPLEXITY_API_KEY = "pplx-..."
+   ```
+4. "Deploy" → 2 min e ottieni un link tipo `https://llm-visibility-tracker-tuoaccount.streamlit.app`
+5. Il DB sarà inizializzato automaticamente al primo avvio (schema vuoto)
+
+### 3. Seed iniziale dei prompt (da locale, una volta sola)
+
+Imposta in locale `DATABASE_URL` puntando a Supabase, poi:
+```bash
+DATABASE_URL="postgresql://..." python -m scripts.seed_db
+DATABASE_URL="postgresql://..." python -m scripts.run_batch --repeat 1
+```
+
+In alternativa: aggiungi le righe al workflow GitHub Actions e lascia che le esegua lui.
+
+### 4. Condividi il link
+Chi riceve il link inserisce la `APP_PASSWORD` e accede.
+
 ## Automazione
 
 ### GitHub Actions (settimanale)

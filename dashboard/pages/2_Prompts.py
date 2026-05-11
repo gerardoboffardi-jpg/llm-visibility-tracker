@@ -1,14 +1,23 @@
 """Prompts — lista, aggiungi, modifica, lancia run."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import streamlit as st
 
+from dashboard.auth import require_password
 from dashboard.utils import prompts_overview_df
 from src import prompt_service as ps
 from src.runner import run_single
 
 st.set_page_config(page_title="Prompts", page_icon="📝", layout="wide")
+if not require_password():
+    st.stop()
+
 st.title("📝 Prompts")
+st.caption("Gestisci i prompt che vengono monitorati su tutti gli LLM.")
 
 # ----------------- Top bar: actions -----------------
 top_l, top_r = st.columns([3, 1])

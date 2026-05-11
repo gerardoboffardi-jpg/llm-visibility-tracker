@@ -1,0 +1,17 @@
+# Streamlit theme configuration
+
+[theme]
+# Palette ispirata al brand TAG (warm coral) ma adattata a una dashboard analytics
+primaryColor = "#E94E1B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#0F172A"
+font = "sans serif"
+
+[server]
+# Per Streamlit Cloud / deploy
+headless = true
+runOnSave = false
+
+[browser]
+gatherUsageStats = false

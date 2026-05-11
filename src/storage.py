@@ -21,8 +21,34 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 
 load_dotenv(override=True)
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "llm_visibility.db"
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+
+def _resolve_database_url() -> str:
+    """Priorità: env var DATABASE_URL > Streamlit secrets > SQLite locale.
+
+    Normalizza eventuali `postgres://` (formato Heroku/Supabase URI) in
+    `postgresql+psycopg://` richiesto da SQLAlchemy 2 + psycopg3.
+    """
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        # Tenta Streamlit secrets se siamo in contesto Streamlit
+        try:
+            import streamlit as st  # type: ignore
+            url = st.secrets.get("DATABASE_URL")  # type: ignore[attr-defined]
+        except Exception:
+            url = None
+    if not url:
+        default_path = Path(__file__).resolve().parent.parent / "llm_visibility.db"
+        return f"sqlite:///{default_path}"
+
+    # Normalizza prefissi
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://") and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+DATABASE_URL = _resolve_database_url()
 
 
 class Base(DeclarativeBase):

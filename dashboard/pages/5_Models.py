@@ -1,11 +1,19 @@
 """Models — confronto performance dei modelli LLM."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import streamlit as st
 
+from dashboard.auth import require_password
 from dashboard.utils import model_aggregates
 
 st.set_page_config(page_title="Models", page_icon="🤖", layout="wide")
+if not require_password():
+    st.stop()
+
 st.title("🤖 Models")
 st.caption("Confronto delle performance dei modelli LLM monitorati.")
 

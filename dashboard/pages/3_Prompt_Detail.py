@@ -1,10 +1,15 @@
 """Prompt Detail — risposte, citazioni evidenziate, citation gap, azioni."""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from collections import defaultdict
 
 import streamlit as st
 
+from dashboard.auth import require_password
 from dashboard.utils import (
     fmt_dt,
     fmt_pct,
@@ -15,6 +20,9 @@ from src import prompt_service as ps
 from src.runner import run_single
 
 st.set_page_config(page_title="Prompt Detail", page_icon="🔬", layout="wide")
+if not require_password():
+    st.stop()
+
 st.title("🔬 Prompt Detail")
 
 # Selettore prompt

@@ -13,6 +13,20 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env", override=True)
 
+# Bridge: in produzione (Streamlit Cloud) i secrets vengono passati via
+# st.secrets, non env. Li copiamo in os.environ così tutto il codice provider
+# continua a leggere via os.getenv senza modifiche.
+import os as _os  # noqa: E402
+try:
+    import streamlit as _st  # noqa: E402
+    for _k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY",
+               "PERPLEXITY_API_KEY", "DATABASE_URL", "SLACK_WEBHOOK_URL"):
+        _v = _st.secrets.get(_k) if hasattr(_st, "secrets") else None
+        if _v and not _os.environ.get(_k):
+            _os.environ[_k] = str(_v)
+except Exception:
+    pass
+
 import pandas as pd  # noqa: E402
 from sqlalchemy import Integer, func, select  # noqa: E402
 
@@ -25,7 +39,17 @@ from src.storage import (  # noqa: E402
     Response,
     Run,
     get_session,
+    init_db,
 )
+
+# Inizializza schema (idempotente — safe da chiamare a ogni reload)
+try:
+    init_db()
+except Exception as _e:  # noqa: BLE001
+    # Se il DB non è raggiungibile mostriamo l'errore in chiaro al primo widget
+    import streamlit as _st
+    _st.error(f"⚠️ Impossibile inizializzare il database: {_e}")
+    _st.stop()
 
 
 def fmt_pct(x: float | None) -> str:
