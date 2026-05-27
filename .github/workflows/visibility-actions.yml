@@ -1,0 +1,62 @@
+name: Visibility actions
+
+# Motore "rilancio"/azioni del tracker, eseguito su GitHub Actions (niente server).
+# Trigger:
+#  - workflow_dispatch: manuale (UI / gh workflow run) per test
+#  - repository_dispatch (type: visibility): da n8n via GitHub API, con client_payload
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "run-batch | run | delete | create | generate"
+        required: true
+        default: "run-batch"
+      prompt_ids:
+        description: "CSV di id (vuoto = tutti gli attivi)"
+        required: false
+        default: ""
+      repeat:
+        description: "ripetizioni per prompt"
+        required: false
+        default: "1"
+      url:
+        description: "URL (solo per generate)"
+        required: false
+        default: ""
+      text:
+        description: "testo (solo per create)"
+        required: false
+        default: ""
+  repository_dispatch:
+    types: [visibility]
+
+concurrency:
+  group: visibility-actions
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-api.txt
+      - name: Costruisci PAYLOAD
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            printf 'PAYLOAD<<EOF\n%s\nEOF\n' '${{ toJSON(github.event.client_payload) }}' >> "$GITHUB_ENV"
+          else
+            printf 'PAYLOAD<<EOF\n%s\nEOF\n' '${{ toJSON(github.event.inputs) }}' >> "$GITHUB_ENV"
+          fi
+      - name: Esegui azione
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.gh_action
