@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+import yaml
 import pandas as pd
 import streamlit as st
 from sqlalchemy import Integer, func, select
@@ -53,6 +54,50 @@ c1.metric("⭐ Citation rate", fmt_pct(kpis["citation_rate"]))
 c2.metric("💬 Mention rate", fmt_pct(kpis["mention_rate"]))
 c3.metric("📊 Share of citations", fmt_pct(kpis["share_of_citations"]))
 c4.metric("⚠️ Citation gap", fmt_pct(kpis["citation_gap"]))
+
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+
+# ---------------- Chat models KPI ----------------
+# Carica config modelli per identificare i chat model_id
+_cfg_path = Path(__file__).resolve().parent.parent.parent / "config" / "models.yaml"
+try:
+    with open(_cfg_path) as _f:
+        _models_cfg = yaml.safe_load(_f) or []
+except Exception:
+    _models_cfg = []
+
+_chat_model_ids: set[str] = {
+    m["id"] for m in _models_cfg
+    if "id" in m and not m.get("web_search", True)
+}
+
+# Calcola metriche chat dal DB
+with get_session() as _s:
+    _chat_n_resp = _s.scalar(
+        select(func.count(Response.id)).where(
+            Response.model_id.in_(list(_chat_model_ids))
+        )
+    ) or 0
+    _chat_n_men = _s.scalar(
+        select(func.count(Response.id)).where(
+            Response.model_id.in_(list(_chat_model_ids)),
+            Response.has_target_mention.is_(True),
+        )
+    ) or 0
+
+_chat_mention_rate = (_chat_n_men / _chat_n_resp) if _chat_n_resp else None
+
+section_header(
+    eyebrow="Chat models",
+    title="Brand awareness senza web search",
+    sub="Mention rate dei modelli che non hanno accesso al web — misura la presenza del brand nel training data.",
+)
+if _chat_n_resp == 0:
+    st.info("Nessuna risposta chat ancora raccolta...")
+else:
+    cc1, cc2 = st.columns(2)
+    cc1.metric("💬 Mention rate (chat)", fmt_pct(_chat_mention_rate))
+    cc2.metric("# Risposte chat", _chat_n_resp)
 
 st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 

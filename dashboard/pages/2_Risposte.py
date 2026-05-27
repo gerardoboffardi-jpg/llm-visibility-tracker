@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+import yaml
 import streamlit as st
 
 from dashboard.auth import require_password
@@ -38,6 +39,21 @@ page_header(
     sub="Feed cronologico di tutte le risposte raccolte. Brand evidenziati e citazioni in chiaro.",
 )
 
+# --- Carica config modelli per distinguere search vs chat ---
+_cfg_path = Path(__file__).resolve().parent.parent.parent / "config" / "models.yaml"
+try:
+    with open(_cfg_path) as _f:
+        _models_cfg = yaml.safe_load(_f) or []
+except Exception:
+    _models_cfg = []
+
+_search_model_ids: set[str] = {
+    m["id"] for m in _models_cfg if "id" in m and m.get("web_search", True)
+}
+_chat_model_ids: set[str] = {
+    m["id"] for m in _models_cfg if "id" in m and not m.get("web_search", True)
+}
+
 # ----------------- Filtri (top bar) -----------------
 prompts = ps.list_prompts()
 prompt_options = {0: "Tutti i prompt"}
@@ -48,7 +64,7 @@ models = get_available_models()
 model_options = ["Tutti i modelli"] + models
 
 with st.container():
-    f1, f2, f3, f4 = st.columns([2, 2, 2, 1])
+    f1, f2, f3, f4, f5 = st.columns([2, 2, 2, 1, 1])
     sel_prompt = f1.selectbox(
         "Prompt", options=list(prompt_options.keys()),
         format_func=lambda i: prompt_options[i],
@@ -59,7 +75,11 @@ with st.container():
         options=["Tutte", "✅ Solo con citazione", "💬 Solo con menzione",
                  "⚠️ Solo citation gap", "❌ Né citato né menzionato"],
     )
-    limit = f4.number_input("Limite", min_value=10, max_value=500, value=50, step=10)
+    sel_model_type = f4.selectbox(
+        "Tipo modello",
+        options=["Tutti", "🔍 Search", "💬 Chat"],
+    )
+    limit = f5.number_input("Limite", min_value=10, max_value=500, value=50, step=10)
 
 # ----------------- Query feed -----------------
 filters = {
@@ -79,6 +99,13 @@ feed = recent_responses_feed(**filters)
 # Filtro client-side per "Né citato né menzionato"
 if sel_status == "❌ Né citato né menzionato":
     feed = [r for r in feed if not r["has_target_citation"] and not r["has_target_mention"]]
+
+# Filtro client-side per tipo modello (search vs chat)
+if sel_model_type == "🔍 Search":
+    # Se il modello non è in config, lo trattiamo come search per retrocompatibilità
+    feed = [r for r in feed if r["model_id"] in _search_model_ids or r["model_id"] not in _chat_model_ids]
+elif sel_model_type == "💬 Chat":
+    feed = [r for r in feed if r["model_id"] in _chat_model_ids]
 
 # ----------------- Summary chip -----------------
 n_total = len(feed)

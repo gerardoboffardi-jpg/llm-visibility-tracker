@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-load_dotenv(override=True)
+load_dotenv(override=False)  # le env var di shell hanno precedenza su .env
 
 
 def _resolve_database_url() -> str:

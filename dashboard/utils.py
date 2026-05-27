@@ -63,6 +63,19 @@ _FLAGS = [
 ]
 
 
+def _model_web_search_map() -> dict[str, bool]:
+    """Mappa model_id → web_search bool da config/models.yaml."""
+    from pathlib import Path
+    import yaml
+    cfg_path = Path(__file__).resolve().parent.parent / "config" / "models.yaml"
+    try:
+        with open(cfg_path) as f:
+            models = yaml.safe_load(f) or []
+        return {m["id"]: bool(m.get("web_search", True)) for m in models if "id" in m}
+    except Exception:
+        return {}
+
+
 def fun_loader(text: str) -> str:
     """Restituisce una stringa con 2 emoji random (1 animale + 1 bandiera) per
     rendere meno noioso il caricamento. Esempio: '🦘 🇮🇹 — Genero prompt…'
@@ -395,9 +408,10 @@ def cost_aggregates() -> dict:
     last_7d = 0.0
     n_with_tokens = 0
     cutoff = datetime.utcnow() - timedelta(days=7)
+    _ws_map = _model_web_search_map()
     by_model: dict[str, dict] = {}
     for r in responses:
-        c = estimate_cost(r.model_id, r.tokens or 0, has_web_search=True, pricing=pricing)
+        c = estimate_cost(r.model_id, r.tokens or 0, has_web_search=_ws_map.get(r.model_id, True), pricing=pricing)
         total += c
         if r.tokens and r.tokens > 0:
             n_with_tokens += 1
@@ -436,8 +450,9 @@ def run_history(limit: int = 100) -> pd.DataFrame:
             resps = list(s.scalars(select(Response).where(Response.run_id == run.id)).all())
             n_resp = len(resps)
             n_success = sum(1 for r in resps if (r.text or "").strip() and (r.tokens or 0) > 0)
+            _ws_map = _model_web_search_map()
             cost = sum(
-                estimate_cost(r.model_id, r.tokens or 0, has_web_search=True, pricing=pricing)
+                estimate_cost(r.model_id, r.tokens or 0, has_web_search=_ws_map.get(r.model_id, True), pricing=pricing)
                 for r in resps
             )
             duration = None
@@ -468,8 +483,9 @@ def top_prompts_by_cost(limit: int = 10) -> pd.DataFrame:
             resps = list(s.scalars(select(Response).where(Response.prompt_id == p.id)).all())
             if not resps:
                 continue
+            _ws_map = _model_web_search_map()
             cost = sum(
-                estimate_cost(r.model_id, r.tokens or 0, has_web_search=True, pricing=pricing)
+                estimate_cost(r.model_id, r.tokens or 0, has_web_search=_ws_map.get(r.model_id, True), pricing=pricing)
                 for r in resps
             )
             rows.append({
