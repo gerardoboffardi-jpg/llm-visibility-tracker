@@ -74,57 +74,84 @@ def main() -> None:
                 pass
         print(f"  generati {len(res.prompts)} prompt da {url}, aggiunti {added} (modello {res.model_used})")
     elif action == "seo-plan":
-        _generate_seo_plan()
+        _generate_seo_plan(payload)
     else:
         raise SystemExit(f"Azione sconosciuta: {action}")
 
     print("✓ fatto")
 
 
-def _generate_seo_plan() -> None:
-    """Costruisce un contesto dai dati (metriche + gap + competitor) e fa scrivere
-    a Claude un piano SEO/GEO (AEO) in italiano; salva il risultato in seo_plans."""
-    import os as _os
-    from collections import Counter
+def _generate_seo_plan(payload: dict) -> None:
+    """Genera un piano SEO/GEO (AEO) in italiano via Claude e lo salva in seo_plans.
+
+    Se `prompt_id` è nel payload → piano MIRATO a quel gap specifico (testo del
+    prompt, competitor citati per quel prompt). Altrimenti piano globale.
+    """
+    import json as _json
     from sqlalchemy import text
     from src.storage import get_session
 
-    with get_session() as s:
-        n = s.execute(text("select count(*) from responses")).scalar() or 0
-        n_cit = s.execute(text("select count(*) from responses where has_target_citation")).scalar() or 0
-        n_men = s.execute(text("select count(*) from responses where has_target_mention")).scalar() or 0
-        gap_rows = s.execute(text(
-            "select p.text, count(*) filter (where r.has_target_mention) as men, "
-            "count(*) filter (where r.has_target_citation) as cit, count(*) as tot "
-            "from prompts p join responses r on r.prompt_id=p.id group by p.id, p.text "
-            "having count(*) filter (where r.has_target_mention) > count(*) filter (where r.has_target_citation) "
-            "order by (count(*) filter (where r.has_target_mention)-count(*) filter (where r.has_target_citation)) desc limit 12"
-        )).fetchall()
-        comp = s.execute(text(
-            "select domain, count(*) c from citations where is_competitor_domain group by domain order by c desc limit 10"
-        )).fetchall()
-        nocit = s.execute(text(
-            "select p.text from prompts p join responses r on r.prompt_id=p.id "
-            "group by p.id,p.text having count(*) filter (where r.has_target_citation)=0 limit 12"
-        )).fetchall()
+    pid = payload.get("prompt_id")
+    pid = int(pid) if pid not in (None, "", "null") else None
+    title = None
 
-    cr = (n_cit / n) if n else 0
-    mr = (n_men / n) if n else 0
-    ctx = {
-        "citation_rate": round(cr, 3), "mention_rate": round(mr, 3), "n_responses": n,
-        "gap_prompts": [g[0] for g in gap_rows],
-        "never_cited_prompts": [g[0] for g in nocit],
-        "competitor_domains": [f"{c[0]} ({c[1]})" for c in comp],
-    }
-    import json as _json
-    user = (
-        "Dati di visibilità di Talent Garden (talentgarden.com) negli LLM:\n"
-        + _json.dumps(ctx, ensure_ascii=False, indent=2)
-        + "\n\nScrivi un PIANO SEO/GEO (Generative Engine Optimization / AEO) operativo in ITALIANO, in markdown, "
-        "che spieghi azioni concrete per aumentare citation rate e mention rate: priorità, contenuti da creare, "
-        "domini su cui farsi linkare (dove i competitor dominano), prompt/temi da presidiare. Massimo 700 parole, "
-        "strutturato in sezioni con bullet azionabili."
-    )
+    with get_session() as s:
+        if pid is not None:
+            # Contesto MIRATO al singolo prompt/gap
+            row = s.execute(text("select text, category, geo from prompts where id=:i"), {"i": pid}).fetchone()
+            if not row:
+                raise SystemExit(f"seo-plan: prompt {pid} non trovato")
+            title = row[0]
+            agg = s.execute(text(
+                "select count(*) tot, count(*) filter (where has_target_mention) men, "
+                "count(*) filter (where has_target_citation) cit from responses where prompt_id=:i"
+            ), {"i": pid}).fetchone()
+            comp = s.execute(text(
+                "select c.domain, count(*) n from citations c join responses r on c.response_id=r.id "
+                "where r.prompt_id=:i and c.is_competitor_domain group by c.domain order by n desc limit 10"
+            ), {"i": pid}).fetchall()
+            other = s.execute(text(
+                "select c.domain, count(*) n from citations c join responses r on c.response_id=r.id "
+                "where r.prompt_id=:i and not c.is_target_domain and not c.is_competitor_domain group by c.domain order by n desc limit 10"
+            ), {"i": pid}).fetchall()
+            ctx = {
+                "prompt": row[0], "category": row[1], "geo": row[2],
+                "risposte": agg[0], "mention_rate": round((agg[1] or 0)/agg[0], 3) if agg[0] else 0,
+                "citation_rate": round((agg[2] or 0)/agg[0], 3) if agg[0] else 0,
+                "competitor_citati": [f"{c[0]} ({c[1]})" for c in comp],
+                "altri_domini_citati": [f"{o[0]} ({o[1]})" for o in other],
+            }
+            user = (
+                f"Gap di visibilità di Talent Garden su questo specifico prompt utente:\n"
+                + _json.dumps(ctx, ensure_ascii=False, indent=2)
+                + "\n\nScrivi un PIANO SEO/GEO (AEO) MIRATO a questo singolo prompt, in ITALIANO markdown: "
+                "perché gli LLM non citano talentgarden.com qui, quali contenuti creare per questo intento, "
+                "su quali domini (di quelli citati) farsi linkare, e azioni concrete prioritizzate. Max 500 parole."
+            )
+        else:
+            # Contesto GLOBALE
+            n = s.execute(text("select count(*) from responses")).scalar() or 0
+            n_cit = s.execute(text("select count(*) from responses where has_target_citation")).scalar() or 0
+            n_men = s.execute(text("select count(*) from responses where has_target_mention")).scalar() or 0
+            gap_rows = s.execute(text(
+                "select p.text from prompts p join responses r on r.prompt_id=p.id group by p.id,p.text "
+                "having count(*) filter (where r.has_target_mention) > count(*) filter (where r.has_target_citation) limit 12"
+            )).fetchall()
+            comp = s.execute(text(
+                "select domain, count(*) c from citations where is_competitor_domain group by domain order by c desc limit 10"
+            )).fetchall()
+            ctx = {
+                "citation_rate": round(n_cit/n, 3) if n else 0, "mention_rate": round(n_men/n, 3) if n else 0,
+                "n_responses": n, "gap_prompts": [g[0] for g in gap_rows],
+                "competitor_domains": [f"{c[0]} ({c[1]})" for c in comp],
+            }
+            user = (
+                "Dati di visibilità di Talent Garden (talentgarden.com) negli LLM:\n"
+                + _json.dumps(ctx, ensure_ascii=False, indent=2)
+                + "\n\nScrivi un PIANO SEO/GEO (AEO) GLOBALE operativo in ITALIANO markdown: priorità, contenuti, "
+                "domini su cui farsi linkare, prompt/temi da presidiare. Max 700 parole, sezioni con bullet azionabili."
+            )
+
     import anthropic
     client = anthropic.Anthropic()
     model = "claude-sonnet-4-5"
@@ -135,10 +162,10 @@ def _generate_seo_plan() -> None:
     )
     content = "".join(b.text for b in resp.content if hasattr(b, "text"))
     with get_session() as s:
-        s.execute(text("insert into seo_plans(content, model_used) values(:c, :m)"),
-                  {"c": content, "m": model})
+        s.execute(text("insert into seo_plans(content, model_used, prompt_id, title) values(:c,:m,:p,:t)"),
+                  {"c": content, "m": model, "p": pid, "t": title})
         s.commit()
-    print(f"  piano SEO/GEO generato ({len(content)} char) e salvato")
+    print(f"  piano SEO/GEO {'per prompt '+str(pid) if pid else 'globale'} generato ({len(content)} char)")
 
 
 if __name__ == "__main__":

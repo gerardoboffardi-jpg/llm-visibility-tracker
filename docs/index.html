@@ -49,7 +49,7 @@
   tr:hover td{background:#FBFCFE}
   .bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden}
   .bar>span{display:block;height:100%;background:var(--coral)}
-  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.72rem;font-weight:600;line-height:1.3;white-space:nowrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 11px;border-radius:99px;font-size:.76rem;font-weight:600;line-height:1;white-space:nowrap}
   .pill-green{background:#DCFCE7;color:#166534}.pill-orange{background:#FFEDD5;color:#9A3412}
   .pill-slate{background:#F1F5F9;color:#475569}.pill-coral{background:var(--coral-soft);color:var(--coral-dark)}
   .subtab{padding:7px 14px;border-radius:9px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--muted)}
@@ -227,10 +227,10 @@ function tabOverview(){
   const k = globalKpis();
   const c = document.getElementById("content");
   c.innerHTML = `
-   <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:26px 28px;margin-bottom:22px">
-     <div class="eyebrow">LLM Visibility · Talent Garden</div>
-     <h1 style="font-size:1.7rem;font-weight:800;margin:6px 0 4px">Quanto è visibile Talent Garden<br>nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
-     <p class="muted" style="max-width:640px;font-size:.92rem">Monitoriamo come ChatGPT, Perplexity, Claude e Gemini citano <b>talentgarden.com</b> su coworking, formazione e innovation.</p>
+   <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:34px 40px;margin-bottom:22px">
+     <div class="eyebrow" style="margin-bottom:10px">LLM Visibility · Talent Garden</div>
+     <h1 style="font-size:clamp(2.1rem,3.4vw,3.1rem);font-weight:800;margin:0 0 10px;line-height:1.08">Quanto è visibile Talent Garden nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
+     <p class="muted" style="font-size:1.05rem;max-width:980px">Monitoriamo come ChatGPT, Perplexity, Claude e Gemini citano <b>talentgarden.com</b> su coworking, formazione e innovation.</p>
    </div>
    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
      ${kpiCard("⭐ Citation rate", pct1(k.citation_rate), k.n_responses+" risposte · "+k.n_prompts+" prompt", "var(--coral)")}
@@ -239,8 +239,8 @@ function tabOverview(){
      ${kpiCard("⚠️ Citation gap", pct1(k.citation_gap), "Opportunità SEO", "var(--orange)")}
    </div>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-     <div class="card">${sectionHeader("Citazioni","Domain mix","Target vs competitor vs altri")}<canvas id="chDomain" height="200"></canvas></div>
-     <div class="card">${sectionHeader("Andamento","Trend citation rate","Per giorno")}<canvas id="chTrend" height="200"></canvas></div>
+     <div class="card">${sectionHeader("Citazioni","Domain mix","Target vs competitor vs altri")}<div style="position:relative;height:240px"><canvas id="chDomain"></canvas></div></div>
+     <div class="card">${sectionHeader("Andamento","Trend citation rate","Per giorno")}<div style="position:relative;height:240px"><canvas id="chTrend"></canvas></div></div>
    </div>`;
   drawDomain(); drawTrend();
 }
@@ -255,7 +255,7 @@ function drawDomain(){
   _charts.domain?.destroy();
   _charts.domain=new Chart(ctx,{type:"doughnut",data:{labels:["Target","Competitor","Altri"],
     datasets:[{data:[d.target,d.competitor,d.other],backgroundColor:["#16A34A","#F97316","#CBD5E1"]}]},
-    options:{plugins:{legend:{position:"bottom"}}}});
+    options:{responsive:true,maintainAspectRatio:false,cutout:"58%",plugins:{legend:{position:"bottom"}}}});
 }
 function drawTrend(){
   const by={}; DATA.responses.forEach(r=>{const day=(r.created_at||"").slice(0,10); if(!day)return;(by[day]??={n:0,c:0});by[day].n++; if(r.has_target_citation)by[day].c++;});
@@ -263,7 +263,7 @@ function drawTrend(){
   _charts.trend?.destroy();
   _charts.trend=new Chart(ctx,{type:"line",data:{labels:days,datasets:[{label:"Citation rate",
     data:days.map(d=>by[d].c/by[d].n),borderColor:"#FF5F00",backgroundColor:"#FFE0D4",fill:true,tension:.3}]},
-    options:{scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+"%"}}},plugins:{legend:{display:false}}}});
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+"%"}}},plugins:{legend:{display:false}}}});
 }
 
 function tabPrompts(){
@@ -366,11 +366,11 @@ window.renderFeed = function(){
   document.getElementById("feed").innerHTML = rs.slice(0,80).map(r=>`
     <div class="card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:.88rem"><img class="mlogo" src="${modelLogo(r.model_id)}" alt="">${esc(modelLabel(r.model_id))}</span>
-          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelType(r.model_id)==='chat'?'💬 chat':'🔍 search'}</span>
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span class="pill" style="background:#0F172A;color:#fff"><img class="mlogo" src="${modelLogo(r.model_id)}" alt="">${esc(modelLabel(r.model_id))}</span>
+          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelType(r.model_id)==='chat'?'chat':'search'}</span>
           ${r.has_target_citation?'<span class="pill pill-green">⭐ citato</span>':''}
-          ${r.has_target_mention?'<span class="pill pill-orange">💬 menzionato</span>':''}
+          ${r.has_target_mention?'<span class="pill pill-orange">menzionato</span>':''}
         </div>
         <span class="muted" style="font-size:.78rem;white-space:nowrap">${fmtDate(r.created_at)}</span>
       </div>
@@ -451,10 +451,14 @@ function tabReco(){
   const card=(t,sub,items,col)=>`<div class="card" style="margin-bottom:14px"><div style="font-weight:600;color:${col}">${t}</div><div class="muted" style="font-size:.82rem;margin-bottom:8px">${sub}</div>${items.length?items.map(p=>`<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem">▸ ${esc(p.text)} <span class="muted">(${pct(p.mention_rate)} men / ${pct(p.citation_rate)} cit)</span></div>`).join(""):'<span class="muted">Nessuno 🎉</span>'}</div>`;
   document.getElementById("content").innerHTML = sectionHeader("Azioni","Recommendations","Dove agire per migliorare la visibilità") +
     `<div class="infobox">🎯 Questa pagina trasforma i dati in <b>azioni concrete</b>: evidenzia i prompt dove Talent Garden è <b>menzionato ma non citato</b> (opportunità SEO/AEO: farsi linkare dove già ti nominano) e quelli dove <b>non compari mai</b> tra le fonti (da presidiare con contenuti dedicati).</div>
-    <div class="card" style="margin-bottom:14px;border:2px solid var(--coral-border);background:var(--coral-soft)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-        <div><div style="font-weight:700">✨ Piano SEO/GEO con l'AI</div>
-          <div class="muted" style="font-size:.84rem">Claude analizza i dati e scrive un piano d'azione prioritizzato.</div></div>
+    `<div class="card" style="margin-bottom:14px;border:2px solid var(--coral-border);background:var(--coral-soft)">
+      <div style="font-weight:700">✨ Piano SEO/GEO con l'AI</div>
+      <div class="muted" style="font-size:.84rem;margin-bottom:10px">Claude scrive un piano d'azione prioritizzato. Scegli un <b>gap specifico</b> per un piano mirato, o "Globale" per il quadro generale.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="gapSel" onchange="loadSeoPlan()" style="max-width:560px">
+          <option value="">🌐 Globale (tutti i gap)</option>
+          ${gaps.map(g=>`<option value="${g.id}">#${g.id} · ${esc(g.text).slice(0,72)}</option>`).join("")}
+        </select>
         <button class="btn btn-primary" onclick="actionSeoPlan()">✨ Genera piano</button>
       </div>
       <div id="seoPlanBox" style="margin-top:12px"></div>
@@ -465,12 +469,15 @@ function tabReco(){
 }
 async function loadSeoPlan(){
   const box=document.getElementById("seoPlanBox"); if(!box)return;
-  const {data}=await sb.from("seo_plans").select("*").order("created_at",{ascending:false}).limit(1);
+  const sel=document.getElementById("gapSel")?.value || "";
+  let q=sb.from("seo_plans").select("*").order("created_at",{ascending:false}).limit(1);
+  q = sel ? q.eq("prompt_id", +sel) : q.is("prompt_id", null);
+  const {data}=await q;
   if(data&&data.length){ const p=data[0];
     box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px">
-      <div class="muted" style="font-size:.74rem;margin-bottom:6px">Ultimo piano · ${fmtDate(p.created_at)} · ${esc(p.model_used||"")}</div>
+      <div class="muted" style="font-size:.74rem;margin-bottom:6px">${p.title?'🎯 Gap: '+esc(p.title)+' · ':''}${fmtDate(p.created_at)} · ${esc(p.model_used||"")}</div>
       <div class="resp-md" style="max-height:none">${mdText(p.content)}</div></div>`;
-  } else { box.innerHTML=`<div class="muted" style="font-size:.84rem">Nessun piano ancora generato. Clicca "Genera piano".</div>`; }
+  } else { box.innerHTML=`<div class="muted" style="font-size:.84rem">Nessun piano per questa selezione. Clicca "Genera piano".</div>`; }
 }
 
 function tabCosti(){
@@ -508,9 +515,9 @@ window.actionDelete = async ()=>{ const ids=selectedPrompts(); if(!ids.length)re
   if(await callN8n(N8N.remove,{prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Usa ↻ Aggiorna dati."); } };
 window.actionCreate = async ()=>{ const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
   if(await callN8n(N8N.create,{text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Usa ↻ Aggiorna dati."); } };
-window.actionSeoPlan = async ()=>{ const box=document.getElementById("seoPlanBox");
-  if(box) box.innerHTML='<div class="muted" style="font-size:.84rem">⏳ Generazione piano in corso… (richiede ~1 min, poi usa ↻ Aggiorna dati o riapri la tab)</div>';
-  await callN8n(N8N.seoPlan,{action:"seo-plan"},"Genera piano SEO/GEO"); };
+window.actionSeoPlan = async ()=>{ const sel=document.getElementById("gapSel")?.value || ""; const box=document.getElementById("seoPlanBox");
+  if(box) box.innerHTML=`<div class="muted" style="font-size:.84rem">⏳ Generazione piano ${sel?'mirato al gap #'+sel:'globale'} in corso… (~1 min, poi ricarica con ↻)</div>`;
+  await callN8n(N8N.seoPlan,{action:"seo-plan", prompt_id: sel||null},"Genera piano SEO/GEO"); };
 window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_pdf_box.style.display = t==='pdf'?'flex':'none';
   gtab_url.classList.toggle('active',t==='url'); gtab_pdf.classList.toggle('active',t==='pdf'); };
 window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
