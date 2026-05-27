@@ -16,18 +16,37 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 load_dotenv(override=True)
 
 from src import prompt_service as ps  # noqa: E402
-from src.runner import run_single  # noqa: E402
+from src.runner import run_batch, run_single  # noqa: E402
 
 app = FastAPI(
     title="LLM Visibility Tracker API",
     version="0.1.0",
     description="Aggiungi prompt e triggera run da sistemi esterni.",
+)
+
+# CORS: il sito statico (GitHub Pages) e n8n possono chiamare l'API.
+# Origini extra via env CORS_ORIGINS (csv). Le chiamate da n8n sono server-to-server
+# (CORS irrilevante), ma serve se il sito chiamasse direttamente.
+_origins = [
+    "https://gerardoboffardi-jpg.github.io",
+    "http://localhost:8788",
+    "http://localhost:8767",
+]
+_extra = os.getenv("CORS_ORIGINS", "")
+if _extra:
+    _origins += [o.strip() for o in _extra.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -134,3 +153,75 @@ def deactivate(prompt_id: int):
         raise HTTPException(status_code=404, detail="Prompt not found")
     ps.deactivate_prompt(prompt_id)
     return {"status": "deactivated", "id": prompt_id}
+
+
+# ---------- Endpoint bulk / batch / generate (per il sito statico via n8n) ----------
+
+class IdsIn(BaseModel):
+    prompt_ids: list[int]
+
+
+class RunBatchIn(BaseModel):
+    prompt_ids: list[int] | None = None  # None = tutti gli attivi
+    repeat: int = 1
+
+
+class GenerateUrlIn(BaseModel):
+    url: str
+    provider: str = "auto"
+
+
+class BulkCreateIn(BaseModel):
+    prompts: list[CreatePromptIn]
+
+
+@app.post("/prompts/bulk-delete", dependencies=[Depends(auth)])
+def bulk_delete(payload: IdsIn):
+    """Elimina definitivamente i prompt indicati (+ risposte/citazioni/menzioni)."""
+    n = ps.delete_prompts(payload.prompt_ids)
+    return {"status": "deleted", "count": n}
+
+
+@app.post("/prompts/run-batch", dependencies=[Depends(auth)])
+def run_batch_endpoint(payload: RunBatchIn, background: BackgroundTasks):
+    """Esegue un batch in BACKGROUND (fire-and-forget): risponde subito, le
+    risposte compaiono su Supabase man mano. Il sito ricarica i dati."""
+    background.add_task(
+        run_batch,
+        prompt_ids=payload.prompt_ids,
+        repeat=payload.repeat,
+        trigger_type="api",
+    )
+    n = len(payload.prompt_ids) if payload.prompt_ids else None
+    return {"status": "started", "prompt_ids": payload.prompt_ids, "n": n, "repeat": payload.repeat}
+
+
+@app.post("/prompts/bulk-create", dependencies=[Depends(auth)])
+def bulk_create(payload: BulkCreateIn):
+    """Crea più prompt in una volta (es. dopo generazione). Salta i duplicati."""
+    added, dup = [], 0
+    for item in payload.prompts:
+        try:
+            p = ps.create_prompt(
+                text=item.text, category=item.category, geo=item.geo,
+                intent=item.intent, notes=item.notes, force=item.force, created_by="api",
+            )
+            added.append(p.id)
+        except ps.DuplicatePromptError:
+            dup += 1
+    return {"status": "ok", "added": added, "skipped_duplicates": dup}
+
+
+@app.post("/generate/url", dependencies=[Depends(auth)])
+def generate_url(payload: GenerateUrlIn):
+    """Genera prompt da un URL (no save): ritorna la lista per review."""
+    from src import prompt_generator as pg
+    try:
+        result = pg.generate_from_url(payload.url, provider=payload.provider)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=str(e))
+    return {
+        "source_label": result.source_label,
+        "model_used": result.model_used,
+        "prompts": [p.as_dict() for p in result.prompts],
+    }

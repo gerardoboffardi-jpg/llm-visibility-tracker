@@ -1,0 +1,26 @@
+# Render Blueprint — mini-API FastAPI per LLM Visibility Tracker.
+# Deploy: su Render → New → Blueprint → seleziona il repo. Poi imposta le env var
+# marcate sync:false (chiavi segrete) nella dashboard Render.
+services:
+  - type: web
+    name: llm-visibility-api
+    runtime: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: API_TOKEN          # token condiviso con n8n (header X-Api-Key)
+        sync: false
+      - key: DATABASE_URL       # pooler Supabase (aws-1-eu-central-1...:5432)
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      - key: CORS_ORIGINS       # opzionale, csv di origini extra
+        sync: false

@@ -1,0 +1,18 @@
+# Dipendenze runtime per la mini-API FastAPI (deploy Render). NIENTE Streamlit.
+anthropic>=0.39.0
+openai>=1.54.0
+google-genai>=0.3.0
+requests>=2.32.0
+pydantic>=2.9.0
+sqlalchemy>=2.0.0
+rapidfuzz>=3.10.0
+tldextract>=5.1.0
+python-dotenv>=1.0.1
+pyyaml>=6.0.2
+psycopg[binary]>=3.2.0
+markdown>=3.7
+beautifulsoup4>=4.12.0
+pypdf>=5.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.9
