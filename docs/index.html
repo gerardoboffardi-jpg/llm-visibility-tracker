@@ -64,7 +64,7 @@
   @keyframes sp{to{transform:rotate(360deg)}}
   .hscroll{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 12px;scroll-behavior:smooth}
   .hscroll::-webkit-scrollbar{height:8px}.hscroll::-webkit-scrollbar-thumb{background:var(--coral-border);border-radius:99px}
-  .hcard{min-width:min(460px,82vw);max-width:460px;scroll-snap-align:start;flex:0 0 auto}
+  .hcard{flex:0 0 100%;min-width:100%;max-width:100%;scroll-snap-align:start}
   .sbtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:1rem;line-height:1;color:var(--ink)}
   .sbtn:hover{background:var(--coral-soft);border-color:var(--coral-border)}
   .hidden{display:none}
@@ -141,6 +141,14 @@ function modelLogo(id){ id=id||""; let d="openai.com";
   else if(id.includes("gemini"))d="gemini.google.com"; else if(id.includes("gpt"))d="openai.com";
   return `https://www.google.com/s2/favicons?sz=64&domain=${d}`; }
 function modelBadge(id){ return `<img class="mlogo" src="${modelLogo(id)}" alt=""> ${esc(modelLabel(id))}`; }
+function providerKey(id){ id=id||""; if(id.includes("perplexity"))return"perplexity"; if(id.includes("claude"))return"claude"; if(id.includes("gemini"))return"gemini"; return"openai"; }
+const PROVIDER_STYLE={
+  gemini:"background:#DBEAFE;color:#1D4ED8",      // azzurro chiaro (Gemini)
+  claude:"background:#F3E2D3;color:#8A4B2A",      // marrone chiaro (Claude/Anthropic)
+  openai:"background:#D8F3E8;color:#0F766E",      // verde acqua (OpenAI)
+  perplexity:"background:#CFF3F1;color:#0E7490",  // teal (Perplexity)
+};
+function modelChip(id){ return `<span class="pill" style="${PROVIDER_STYLE[providerKey(id)]}"><img class="mlogo" src="${modelLogo(id)}" alt="">${esc(modelLabel(id))}</span>`; }
 function mdText(t){ try{ return DOMPurify.sanitize(marked.parse(t||"")); }catch(e){ return esc(t||""); } }
 
 // ============ DATA LOAD ============
@@ -374,7 +382,7 @@ function respCard(r){
       ${(r.citations||[]).length? `<div style="margin-top:8px;font-size:.76rem" class="muted">${(r.citations||[]).length} citazioni · ${(r.citations||[]).filter(c=>c.is_target_domain).length} target</div>`:""}
     </div>`;
 }
-window.scrollSlider = (btn,dir)=>{ const sc=btn.closest('[data-modelrow]').querySelector('.hscroll'); sc.scrollBy({left:dir*480,behavior:'smooth'}); };
+window.scrollSlider = (btn,dir)=>{ const sc=btn.closest('[data-modelrow]').querySelector('.hscroll'); sc.scrollBy({left:dir*sc.clientWidth,behavior:'smooth'}); };
 window.renderFeed = function(){
   const m=document.getElementById("fModel")?.value, ty=document.getElementById("fType")?.value, pid=document.getElementById("fPrompt")?.value;
   let rs = DATA.responses.slice();
@@ -391,10 +399,10 @@ window.renderFeed = function(){
     const list=groups[mid];
     return `<div data-modelrow style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span class="pill" style="background:#0F172A;color:#fff"><img class="mlogo" src="${modelLogo(mid)}" alt="">${esc(modelLabel(mid))}</span>
+        ${modelChip(mid)}
         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
         <span class="muted" style="font-size:.8rem">${list.length} rispost${list.length===1?'a':'e'}</span>
-        ${list.length>1?`<span style="flex:1"></span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
+        ${list.length>1?`<span style="flex:1"></span><span class="muted" style="font-size:.76rem">scorri →</span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
       </div>
       <div class="hscroll">${list.map(respCard).join("")}</div>
     </div>`;
@@ -421,13 +429,16 @@ function tabDetail(){
      ${kpiCard("📊 # risposte", n, n?"su "+Object.keys(byModel).length+" modelli":"")}
    </div>
    ${Object.entries(byModel).map(([mid,list])=>`
-     <div class="card" style="margin-bottom:12px">
-       <div style="font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:7px">${modelBadge(mid)}
-         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}" style="font-size:.68rem">${modelType(mid)==='chat'?'chat':'search'}</span>
-         <span class="muted" style="font-weight:400;font-size:.82rem">· ${list.length} ripetizioni</span></div>
-       ${list.map(r=>`<div style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:12px;margin-bottom:12px">
+     <div data-modelrow class="card" style="margin-bottom:12px">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+         ${modelChip(mid)}
+         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
+         <span class="muted" style="font-size:.82rem">${list.length} ripetizion${list.length===1?'e':'i'}</span>
+         ${list.length>1?`<span style="flex:1"></span><span class="muted" style="font-size:.76rem">scorri →</span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
+       </div>
+       <div class="hscroll">${list.map(r=>`<div class="hcard" style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:14px">
          <div class="muted" style="font-size:.74rem;margin-bottom:4px">${fmtDate(r.created_at)} ${r.has_target_citation?'· ⭐ citato':r.has_target_mention?'· 💬 menzionato':''}</div>
-         <div class="resp-md" style="max-height:240px">${mdText(r.text)}</div></div>`).join("")}
+         <div class="resp-md" style="max-height:340px">${mdText(r.text)}</div></div>`).join("")}</div>
      </div>`).join("") || `<div class="card muted">Nessuna risposta per questo prompt.</div>`}`;
 }
 
