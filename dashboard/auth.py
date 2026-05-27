@@ -69,20 +69,34 @@ def require_password() -> bool:
     if st.session_state.get("_authenticated"):
         return True
 
-    # Ripristina l'auth dal cookie LEGGENDOLO in modo sincrono via st.context.
-    # Nativo Streamlit (>=1.37), nessun componente → nessun doppio caricamento.
-    try:
-        if st.context.cookies.get(_COOKIE_NAME) == token:
-            st.session_state["_authenticated"] = True
-            return True
-    except Exception:  # noqa: BLE001
-        pass
-
-    # --- Non autenticato: schermata di login. ---
-    # Il componente cookie viene istanziato SOLO qui (serve per SCRIVERE il
-    # cookie al login), così le pagine autenticate non lo toccano mai.
+    # Il cookie va letto E scritto con lo STESSO CookieManager: st.context.cookies
+    # legge un "barattolo" diverso da quello dove il componente scrive, quindi
+    # non vedrebbe il cookie. Restiamo sul componente per coerenza.
     cookies = _cookie_manager() if _HAS_COOKIES else None
 
+    if cookies is not None:
+        val = None
+        try:
+            val = cookies.get(_COOKIE_NAME)
+        except Exception:  # noqa: BLE001
+            val = None
+        if val == token:
+            st.session_state["_authenticated"] = True
+            return True
+        # Il componente cookie consegna il valore in modo asincrono: al primo run
+        # è None anche quando il cookie esiste. Diamo UN rerun di grazia mostrando
+        # uno spinner (invece del form che lampeggia), così l'utente vede
+        # "spinner → app" se il cookie c'è, oppure "spinner → login" se non c'è.
+        if not st.session_state.get("_cookie_grace_done"):
+            st.session_state["_cookie_grace_done"] = True
+            st.markdown(
+                "<div style='text-align:center;margin-top:120px;color:#64748b'>"
+                "Caricamento…</div>",
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
+    # --- Non autenticato: schermata di login. ---
     st.markdown(
         """
         <div style="max-width:420px;margin:80px auto 24px auto;text-align:center">
