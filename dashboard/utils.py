@@ -28,7 +28,13 @@ except Exception:
     pass
 
 import pandas as pd  # noqa: E402
-from sqlalchemy import Integer, func, select  # noqa: E402
+import streamlit as st  # noqa: E402
+from sqlalchemy import Integer, case, func, select  # noqa: E402
+
+# TTL cache: le query pesanti verso Supabase vengono memorizzate per qualche
+# secondo, così navigazione e reload non rieseguono decine di query ogni volta.
+# Dopo una mutazione (crea/elimina/rilancia) le pagine chiamano st.cache_data.clear().
+_CACHE_TTL = 60
 
 from src.analyzer import load_brand_index  # noqa: E402
 from src.citation_analyzer import load_brand_config  # noqa: E402
@@ -100,43 +106,44 @@ def fmt_dt(dt) -> str:
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def prompts_overview_df() -> pd.DataFrame:
-    """Tabella con tutti i prompt + metriche aggregate (citation rate, mention rate, ecc)."""
+    """Tabella con tutti i prompt + metriche aggregate (citation rate, mention rate, ecc).
+
+    Ottimizzata: 2 query totali (prompt + aggregati GROUP BY) invece di ~5 per
+    prompt, per evitare decine di round-trip verso Supabase.
+    """
     with get_session() as s:
         prompts = list(s.scalars(select(Prompt)).all())
 
+        # Aggregati per prompt in UNA sola query
+        agg_stmt = (
+            select(
+                Response.prompt_id,
+                func.count(Response.id).label("n_resp"),
+                func.count(func.distinct(Response.model_id)).label("n_models"),
+                func.sum(case((Response.has_target_citation.is_(True), 1), else_=0)).label("n_cit"),
+                func.sum(case((Response.has_target_mention.is_(True), 1), else_=0)).label("n_men"),
+                func.max(Response.created_at).label("last_run"),
+            )
+            .group_by(Response.prompt_id)
+        )
+        agg: dict[int, dict] = {}
+        for row in s.execute(agg_stmt):
+            agg[row.prompt_id] = {
+                "n_resp": row.n_resp or 0,
+                "n_models": row.n_models or 0,
+                "n_cit": row.n_cit or 0,
+                "n_men": row.n_men or 0,
+                "last_run": row.last_run,
+            }
+
         rows = []
         for p in prompts:
-            n_resp = s.scalar(
-                select(func.count(Response.id)).where(Response.prompt_id == p.id)
-            ) or 0
-            n_models = s.scalar(
-                select(func.count(func.distinct(Response.model_id))).where(
-                    Response.prompt_id == p.id
-                )
-            ) or 0
-            last_run = s.scalar(
-                select(func.max(Response.created_at)).where(Response.prompt_id == p.id)
-            )
-            if n_resp:
-                n_cit = s.scalar(
-                    select(func.count(Response.id)).where(
-                        Response.prompt_id == p.id,
-                        Response.has_target_citation.is_(True),
-                    )
-                ) or 0
-                n_men = s.scalar(
-                    select(func.count(Response.id)).where(
-                        Response.prompt_id == p.id,
-                        Response.has_target_mention.is_(True),
-                    )
-                ) or 0
-                cit_rate = n_cit / n_resp
-                men_rate = n_men / n_resp
-            else:
-                cit_rate = None
-                men_rate = None
-
+            a = agg.get(p.id, {"n_resp": 0, "n_models": 0, "n_cit": 0, "n_men": 0, "last_run": None})
+            n_resp = a["n_resp"]
+            cit_rate = (a["n_cit"] / n_resp) if n_resp else None
+            men_rate = (a["n_men"] / n_resp) if n_resp else None
             rows.append({
                 "id": p.id,
                 "prompt": p.text,
@@ -145,15 +152,15 @@ def prompts_overview_df() -> pd.DataFrame:
                 "intent": p.intent or "",
                 "attivo": p.is_active,
                 "n_risposte": n_resp,
-                "n_modelli": n_models,
+                "n_modelli": a["n_models"],
                 "citation_rate": cit_rate,
                 "mention_rate": men_rate,
-                "ultima_run": last_run,
+                "ultima_run": a["last_run"],
             })
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows)
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def global_kpis() -> dict:
     """KPI aggregati a livello globale."""
     with get_session() as s:
@@ -195,6 +202,7 @@ def global_kpis() -> dict:
     }
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def domain_aggregates() -> pd.DataFrame:
     """Tabella aggregata di tutti i domini citati con conteggi."""
     with get_session() as s:
@@ -223,6 +231,7 @@ def domain_aggregates() -> pd.DataFrame:
     return df[["domain", "category", "n_citations", "n_prompts", "n_models"]]
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def model_aggregates() -> pd.DataFrame:
     """Per ogni model_id: n risposte, citation rate, mention rate, latency media."""
     with get_session() as s:
@@ -298,6 +307,7 @@ def get_responses_for_prompt(prompt_id: int) -> list[dict]:
     return out
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def recent_responses_feed(
     limit: int = 50,
     model_id: str | None = None,
@@ -388,6 +398,7 @@ def get_available_models() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def cost_aggregates() -> dict:
     """Statistiche di costo aggregato a livello di tutto il sistema.
 
@@ -431,6 +442,7 @@ def cost_aggregates() -> dict:
     }
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def run_history(limit: int = 100) -> pd.DataFrame:
     """Storico delle run con metriche aggregate per ognuna.
 
@@ -471,6 +483,7 @@ def run_history(limit: int = 100) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def top_prompts_by_cost(limit: int = 10) -> pd.DataFrame:
     """Prompt con costo cumulativo più alto."""
     from src.cost import estimate_cost, load_model_pricing

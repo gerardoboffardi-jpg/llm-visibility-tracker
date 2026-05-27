@@ -137,6 +137,7 @@ if st.session_state.get("show_add_form"):
                         intent=intent or None, notes=notes or None, force=force,
                     )
                     st.success(f"Prompt #{p.id} creato.")
+                    st.cache_data.clear()
                     st.session_state["show_add_form"] = False
                     if run_now:
                         with st.spinner(fun_loader(f"Eseguo prompt #{p.id} su tutti i modelli…")):
@@ -168,6 +169,7 @@ if st.session_state.get("show_import_form"):
                 f"✅ {result.added} aggiunti · {result.skipped_duplicates} duplicati saltati · "
                 f"{result.skipped_invalid} non validi"
             )
+            st.cache_data.clear()
             st.session_state["show_import_form"] = False
             st.rerun()
 
@@ -346,6 +348,7 @@ if st.session_state.get("show_generate_form"):
                         except Exception as e:  # noqa: BLE001
                             st.warning(f"Run #{pid} fallita: {e}")
                 st.success("Esecuzione completata.")
+            st.cache_data.clear()
             st.session_state.pop("generated_result", None)
             st.session_state["show_generate_form"] = False
             st.rerun()
@@ -465,6 +468,7 @@ with st.expander("▶️ Rilancia prompt", expanded=False):
                     st.warning(f"Prompt #{pid} fallito: {e}")
             prog.progress((i + 1) / len(run_ids), text=f"{i + 1}/{len(run_ids)} prompt")
         st.success(f"✅ Completato: {ok_total}/{att_total} risposte OK su {len(run_ids)} prompt.")
+        st.cache_data.clear()  # dati cambiati → invalida la cache
         st.rerun()
 
 # ----------------- Eliminazione prompt (pannello dedicato) -----------------
@@ -512,6 +516,7 @@ with st.expander("🗑 Elimina prompt", expanded=False):
             st.session_state.pop("confirm_delete_ids", None)
             st.session_state["del_selection"] = []
             st.success(f"✅ {n} prompt eliminati.")
+            st.cache_data.clear()  # dati cambiati → invalida la cache
             st.rerun()
         if cc2.button("Annulla", use_container_width=True):
             st.session_state.pop("confirm_delete_ids", None)
