@@ -451,7 +451,7 @@ function tabReco(){
   const card=(t,sub,items,col)=>`<div class="card" style="margin-bottom:14px"><div style="font-weight:600;color:${col}">${t}</div><div class="muted" style="font-size:.82rem;margin-bottom:8px">${sub}</div>${items.length?items.map(p=>`<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem">▸ ${esc(p.text)} <span class="muted">(${pct(p.mention_rate)} men / ${pct(p.citation_rate)} cit)</span></div>`).join(""):'<span class="muted">Nessuno 🎉</span>'}</div>`;
   document.getElementById("content").innerHTML = sectionHeader("Azioni","Recommendations","Dove agire per migliorare la visibilità") +
     `<div class="infobox">🎯 Questa pagina trasforma i dati in <b>azioni concrete</b>: evidenzia i prompt dove Talent Garden è <b>menzionato ma non citato</b> (opportunità SEO/AEO: farsi linkare dove già ti nominano) e quelli dove <b>non compari mai</b> tra le fonti (da presidiare con contenuti dedicati).</div>
-    `<div class="card" style="margin-bottom:14px;border:2px solid var(--coral-border);background:var(--coral-soft)">
+    <div class="card" style="margin-bottom:14px;border:2px solid var(--coral-border);background:var(--coral-soft)">
       <div style="font-weight:700">✨ Piano SEO/GEO con l'AI</div>
       <div class="muted" style="font-size:.84rem;margin-bottom:10px">Claude scrive un piano d'azione prioritizzato. Scegli un <b>gap specifico</b> per un piano mirato, o "Globale" per il quadro generale.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
