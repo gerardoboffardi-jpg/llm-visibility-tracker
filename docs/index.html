@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLM Visibility — Talent Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --coral:#FF5F00; --coral-dark:#9A3B0E; --coral-soft:#FFF1EC; --coral-border:#FFE0D4;
+    --ink:#0F172A; --muted:#64748B; --line:#F1F5F9; --bg:#F8FAFC;
+    --green:#16A34A; --orange:#F97316; --slate:#64748B;
+  }
+  *{font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  body{background:var(--bg);color:var(--ink);margin:0}
+  .sidebar{width:248px;background:#fff;border-right:1px solid var(--line);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto}
+  .main{margin-left:248px;padding:28px 34px;max-width:1280px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--muted);font-weight:500;font-size:.92rem;cursor:pointer;text-decoration:none;transition:.12s}
+  .nav-item:hover{background:var(--coral-soft);color:var(--coral-dark)}
+  .nav-item.active{background:var(--coral);color:#fff;font-weight:600}
+  .nav-item .ico{font-size:1.1rem;width:22px;text-align:center}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .kpi-value{font-size:2rem;font-weight:700;line-height:1}
+  .kpi-label{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .eyebrow{font-size:.72rem;color:var(--coral);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;font-weight:600;font-size:.86rem;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);transition:.12s}
+  .btn:hover{border-color:var(--coral-border);background:var(--coral-soft)}
+  .btn-primary{background:var(--coral);color:#fff;border-color:var(--coral)}
+  .btn-primary:hover{background:var(--coral-dark);color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:#FBFCFE}
+  .bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden}
+  .bar>span{display:block;height:100%;background:var(--coral)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:600}
+  .pill-green{background:#DCFCE7;color:#166534}.pill-orange{background:#FFEDD5;color:#9A3412}
+  .pill-slate{background:#F1F5F9;color:#475569}.pill-coral{background:var(--coral-soft);color:var(--coral-dark)}
+  .subtab{padding:7px 14px;border-radius:9px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--muted)}
+  .subtab.active{background:var(--coral-soft);color:var(--coral-dark)}
+  .resp-text{white-space:pre-wrap;font-size:.86rem;line-height:1.5;color:#334155;max-height:340px;overflow:auto}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.74rem;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .chip.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+  input,select,textarea{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:.88rem;width:100%;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--coral)}
+  .muted{color:var(--muted)}
+  .spinner{width:34px;height:34px;border:3px solid var(--coral-soft);border-top-color:var(--coral);border-radius:50%;animation:sp 1s linear infinite;margin:40px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div style="display:flex;align-items:center;gap:10px;padding:6px 8px 18px">
+    <div style="width:34px;height:34px;border-radius:9px;background:var(--coral);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800">LV</div>
+    <div>
+      <div style="font-weight:700;font-size:.95rem;line-height:1">LLM Visibility</div>
+      <div style="font-size:.72rem;color:var(--muted)">by Talent Garden</div>
+    </div>
+  </div>
+  <div id="nav"></div>
+  <div style="margin-top:auto;padding:12px 8px 4px;border-top:1px solid var(--line);font-size:.72rem;color:var(--muted)">
+    <div id="lastLoad">—</div>
+    <button class="btn" style="margin-top:8px;width:100%;justify-content:center" onclick="loadAll(true)">↻ Aggiorna dati</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+  <div id="loading"><div class="spinner"></div><p class="muted" style="text-align:center">Carico i dati da Supabase…</p></div>
+  <div id="content" class="hidden"></div>
+</main>
+
+<script>
+// ============ CONFIG ============
+const SUPABASE_URL = "https://qbcmnqfnaixbhbuwfgdf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_faBNmujDvlzyKB5b6SydgA_kOnEvTU5";
+// Webhook n8n per le azioni di scrittura (riempire in fase n8n). Se vuoti → bottoni mostrano avviso.
+const N8N = {
+  run:       "",   // POST {prompt_id, repeat}
+  runBatch:  "",   // POST {prompt_ids, repeat}
+  create:    "",   // POST {text, category, geo, intent}
+  remove:    "",   // POST {prompt_ids}
+  generate:  "",   // POST {url}
+};
+const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
+// Registro modelli (mirror di config/models.yaml) per search/chat + pricing USD per 1M token
+const MODELS = {
+  "perplexity-sonar":      {label:"Perplexity Sonar",      type:"search", in:1.00, out:1.00,  web:0.005},
+  "perplexity-sonar-pro":  {label:"Perplexity Sonar Pro",  type:"search", in:3.00, out:15.00, web:0.005},
+  "gpt-4o-search":         {label:"GPT-4o Search",         type:"search", in:2.50, out:10.00, web:0.030},
+  "gpt-4o-mini-search":    {label:"GPT-4o mini Search",    type:"search", in:0.15, out:0.60,  web:0.025},
+  "claude-sonnet-search":  {label:"Claude Sonnet Search",  type:"search", in:3.00, out:15.00, web:0.010},
+  "gemini-2-flash-search": {label:"Gemini 2.5 Flash Search",type:"search",in:0.10, out:0.40,  web:0.000},
+  "gpt-4o-chat":           {label:"GPT-4o Chat",           type:"chat",   in:2.50, out:10.00, web:0},
+  "claude-sonnet-chat":    {label:"Claude Sonnet Chat",    type:"chat",   in:3.00, out:15.00, web:0},
+  "gemini-2-flash-chat":   {label:"Gemini 2.5 Flash Chat", type:"chat",   in:0.10, out:0.40,  web:0},
+};
+const modelType = id => (MODELS[id]?.type) || "search";
+const modelLabel = id => (MODELS[id]?.label) || id;
+function estCost(r){
+  const m = MODELS[r.model_id]; if(!m||!r.tokens) return 0;
+  const t = r.tokens;
+  return (t*0.7*m.in + t*0.3*m.out)/1e6 + (m.type==="search"? m.web : 0);
+}
+
+// ============ STATE ============
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let DATA = { prompts:[], responses:[], competitors:[] };
+const NAV = [
+  ["overview","Overview","📊"],["prompts","Prompts","📝"],["risposte","Risposte","💬"],
+  ["detail","Prompt Detail","🔬"],["models","Models","🤖"],["citations","Citations","🔗"],
+  ["reco","Recommendations","🎯"],["costi","Costi & Run","💰"],
+];
+
+// ============ HELPERS ============
+const pct = x => (x==null? "—" : (x*100).toFixed(0)+"%");
+const pct1 = x => (x==null? "—" : (x*100).toFixed(1)+"%");
+const esc = s => (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtDate = s => s? new Date(s).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+function bar(v){ return `<div class="bar"><span style="width:${Math.round((v||0)*100)}%"></span></div>`; }
+
+// ============ DATA LOAD ============
+async function loadAll(force){
+  document.getElementById("loading").classList.remove("hidden");
+  document.getElementById("content").classList.add("hidden");
+  const [p, r, c] = await Promise.all([
+    sb.from("prompts").select("*").order("id"),
+    sb.from("responses").select("*, prompts(id,text,category,geo,intent), citations(*), mentions(*)").order("created_at",{ascending:false}),
+    sb.from("competitor_domains").select("*"),
+  ]);
+  if(p.error||r.error){ document.getElementById("loading").innerHTML = `<div class="card" style="border-color:#FCA5A5"><b>Errore caricamento dati</b><br><span class="muted">${esc((p.error||r.error).message)}</span></div>`; return; }
+  DATA.prompts = p.data||[]; DATA.responses = r.data||[]; DATA.competitors = c.data||[];
+  document.getElementById("lastLoad").textContent = "Aggiornato: "+new Date().toLocaleTimeString("it-IT");
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("content").classList.remove("hidden");
+  route();
+}
+
+// ============ AGGREGAZIONI ============
+function globalKpis(){
+  const R = DATA.responses, n = R.length;
+  const nCit = R.filter(x=>x.has_target_citation).length;
+  const nMen = R.filter(x=>x.has_target_mention).length;
+  const allCits = R.flatMap(x=>x.citations||[]);
+  const nTargetCit = allCits.filter(x=>x.is_target_domain).length;
+  const citation_rate = n? nCit/n : 0;
+  const mention_rate = n? nMen/n : 0;
+  return {
+    n_prompts: DATA.prompts.length, n_responses:n,
+    n_runs: new Set(R.map(x=>x.run_id)).size,
+    citation_rate, mention_rate,
+    share_of_citations: allCits.length? nTargetCit/allCits.length : 0,
+    citation_gap: Math.max(0, mention_rate - citation_rate),
+    n_total_citations: allCits.length,
+  };
+}
+function perPrompt(){
+  const byId = {};
+  DATA.responses.forEach(r=>{ (byId[r.prompt_id] ||= []).push(r); });
+  return DATA.prompts.map(p=>{
+    const rs = byId[p.id]||[]; const n = rs.length;
+    return {
+      id:p.id, text:p.text, category:p.category||"", geo:p.geo||"", intent:p.intent||"",
+      active:p.is_active, n_resp:n, n_models:new Set(rs.map(x=>x.model_id)).size,
+      citation_rate: n? rs.filter(x=>x.has_target_citation).length/n : null,
+      mention_rate: n? rs.filter(x=>x.has_target_mention).length/n : null,
+      last: rs.reduce((a,x)=> !a||x.created_at>a? x.created_at:a, null),
+    };
+  });
+}
+function perModel(){
+  const by = {};
+  DATA.responses.forEach(r=>{ (by[r.model_id] ||= []).push(r); });
+  return Object.entries(by).map(([id,rs])=>{
+    const n = rs.length;
+    return { model_id:id, label:modelLabel(id), type:modelType(id), n,
+      citation_rate: rs.filter(x=>x.has_target_citation).length/n,
+      mention_rate: rs.filter(x=>x.has_target_mention).length/n,
+      avg_cit: rs.reduce((a,x)=>a+(x.total_citations||0),0)/n,
+      avg_lat: rs.reduce((a,x)=>a+(x.latency_ms||0),0)/n };
+  }).sort((a,b)=>b.n-a.n);
+}
+function domainMix(){
+  const cits = DATA.responses.flatMap(x=>x.citations||[]);
+  let t=0,co=0,o=0;
+  cits.forEach(c=> c.is_target_domain? t++ : c.is_competitor_domain? co++ : o++);
+  return {target:t, competitor:co, other:o, total:cits.length};
+}
+
+// ============ RENDER: shell ============
+function renderNav(active){
+  document.getElementById("nav").innerHTML = NAV.map(([id,label,ico])=>
+    `<a class="nav-item ${id===active?'active':''}" href="#/${id}"><span class="ico">${ico}</span>${label}</a>`).join("");
+}
+function sectionHeader(eyebrow,title,sub){
+  return `<div style="margin:6px 0 18px"><div class="eyebrow">${eyebrow}</div>
+    <div style="font-size:1.4rem;font-weight:700">${title}</div>
+    ${sub?`<div class="muted" style="font-size:.9rem;margin-top:2px">${sub}</div>`:""}</div>`;
+}
+
+// ============ TABS ============
+function tabOverview(){
+  const k = globalKpis();
+  const c = document.getElementById("content");
+  c.innerHTML = `
+   <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:26px 28px;margin-bottom:22px">
+     <div class="eyebrow">LLM Visibility · Talent Garden</div>
+     <h1 style="font-size:1.7rem;font-weight:800;margin:6px 0 4px">Quanto è visibile Talent Garden<br>nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
+     <p class="muted" style="max-width:640px;font-size:.92rem">Monitoriamo come ChatGPT, Perplexity, Claude e Gemini citano <b>talentgarden.com</b> su coworking, formazione e innovation.</p>
+   </div>
+   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
+     ${kpiCard("⭐ Citation rate", pct1(k.citation_rate), k.n_responses+" risposte · "+k.n_prompts+" prompt", "var(--coral)")}
+     ${kpiCard("💬 Mention rate", pct1(k.mention_rate), "Brand citato nel testo")}
+     ${kpiCard("📊 Share of citations", pct1(k.share_of_citations), "Su "+k.n_total_citations+" citazioni")}
+     ${kpiCard("⚠️ Citation gap", pct1(k.citation_gap), "Opportunità SEO", "var(--orange)")}
+   </div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+     <div class="card">${sectionHeader("Citazioni","Domain mix","Target vs competitor vs altri")}<canvas id="chDomain" height="200"></canvas></div>
+     <div class="card">${sectionHeader("Andamento","Trend citation rate","Per giorno")}<canvas id="chTrend" height="200"></canvas></div>
+   </div>`;
+  drawDomain(); drawTrend();
+}
+function kpiCard(label,val,hint,color){
+  return `<div class="card"><div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${color||'var(--ink)'};margin:8px 0 4px">${val}</div>
+    <div class="muted" style="font-size:.8rem">${hint||""}</div></div>`;
+}
+let _charts={};
+function drawDomain(){
+  const d=domainMix(); const ctx=document.getElementById("chDomain"); if(!ctx)return;
+  _charts.domain?.destroy();
+  _charts.domain=new Chart(ctx,{type:"doughnut",data:{labels:["Target","Competitor","Altri"],
+    datasets:[{data:[d.target,d.competitor,d.other],backgroundColor:["#16A34A","#F97316","#CBD5E1"]}]},
+    options:{plugins:{legend:{position:"bottom"}}}});
+}
+function drawTrend(){
+  const by={}; DATA.responses.forEach(r=>{const day=(r.created_at||"").slice(0,10); if(!day)return;(by[day]??={n:0,c:0});by[day].n++; if(r.has_target_citation)by[day].c++;});
+  const days=Object.keys(by).sort(); const ctx=document.getElementById("chTrend"); if(!ctx)return;
+  _charts.trend?.destroy();
+  _charts.trend=new Chart(ctx,{type:"line",data:{labels:days,datasets:[{label:"Citation rate",
+    data:days.map(d=>by[d].c/by[d].n),borderColor:"#FF5F00",backgroundColor:"#FFE0D4",fill:true,tension:.3}]},
+    options:{scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+"%"}}},plugins:{legend:{display:false}}}});
+}
+
+function tabPrompts(){
+  const sub = (location.hash.split("?")[1]||"").includes("add") ? "add":"list";
+  const rows = perPrompt();
+  const c = document.getElementById("content");
+  c.innerHTML = sectionHeader("Gestione","Prompts", rows.length+" prompt monitorati") + `
+   <div style="display:flex;gap:8px;margin-bottom:16px">
+     <div class="subtab ${sub==='list'?'active':''}" onclick="location.hash='#/prompts'">Lista</div>
+     <div class="subtab ${sub==='add'?'active':''}" onclick="location.hash='#/prompts?add'">Aggiungi / Genera</div>
+   </div>
+   <div id="promptsBody"></div>`;
+  document.getElementById("promptsBody").innerHTML = sub==="add"? promptsAdd() : promptsList(rows);
+}
+function promptsList(rows){
+  return `
+  <div class="card" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn" onclick="toggleAll(true)">Seleziona tutti</button>
+    <button class="btn" onclick="toggleAll(false)">Deseleziona</button>
+    <span style="flex:1"></span>
+    <label class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:6px">Ripetizioni <input id="repeatN" type="number" value="1" min="1" max="10" style="width:64px"></label>
+    <button class="btn btn-primary" onclick="actionRun()">▶️ Rilancia selezionati</button>
+    <button class="btn" style="color:#B91C1C" onclick="actionDelete()">🗑 Elimina selezionati</button>
+  </div>
+  <div class="card" style="overflow:auto;max-height:560px">
+   <table><thead><tr>
+     <th style="width:30px"></th><th>ID</th><th>Prompt</th><th>Cat.</th><th># risp</th>
+     <th>Citation</th><th>Mention</th><th>Ultima run</th>
+   </tr></thead><tbody>
+   ${rows.map(p=>`<tr>
+     <td><input type="checkbox" class="selp" value="${p.id}" style="width:auto"></td>
+     <td class="muted">#${p.id}</td>
+     <td><a href="#/detail?p=${p.id}" style="color:var(--ink);font-weight:500">${esc(p.text)}</a></td>
+     <td><span class="pill pill-slate">${esc(p.category)||"—"}</span></td>
+     <td>${p.n_resp}</td>
+     <td style="min-width:90px">${pct(p.citation_rate)} ${bar(p.citation_rate)}</td>
+     <td style="min-width:90px">${pct(p.mention_rate)} ${bar(p.mention_rate)}</td>
+     <td class="muted" style="font-size:.78rem">${fmtDate(p.last)}</td>
+   </tr>`).join("")}
+   </tbody></table>
+  </div>`;
+}
+function promptsAdd(){
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="card">${sectionHeader("Manuale","Aggiungi un prompt","")}
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <textarea id="np_text" rows="3" placeholder="Es. Migliori coworking a Milano per startup"></textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <input id="np_cat" placeholder="categoria"><input id="np_geo" placeholder="geo"><input id="np_int" placeholder="intent">
+        </div>
+        <button class="btn btn-primary" onclick="actionCreate()">➕ Aggiungi prompt</button>
+      </div>
+    </div>
+    <div class="card">${sectionHeader("Automatico","Genera da URL","L'LLM propone 20-30 prompt dal contenuto")}
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <input id="gen_url" placeholder="https://talentgarden.com/it/...">
+        <button class="btn btn-primary" onclick="actionGenerate()">🪄 Genera prompt</button>
+        <div id="genResult" class="muted" style="font-size:.82rem"></div>
+      </div>
+    </div>
+  </div>`;
+}
+window.toggleAll = v => document.querySelectorAll(".selp").forEach(c=>c.checked=v);
+const selectedPrompts = () => [...document.querySelectorAll(".selp:checked")].map(c=>+c.value);
+
+function tabRisposte(){
+  const c = document.getElementById("content");
+  c.innerHTML = sectionHeader("Feed","Risposte", DATA.responses.length+" risposte raccolte") + `
+   <div class="card" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+     <select id="fModel" onchange="renderFeed()" style="width:auto"><option value="">Tutti i modelli</option>
+       ${[...new Set(DATA.responses.map(r=>r.model_id))].map(m=>`<option value="${m}">${esc(modelLabel(m))}</option>`).join("")}</select>
+     <div class="chip active" data-f="all" onclick="setFeedFilter('all')">Tutte</div>
+     <div class="chip" data-f="cit" onclick="setFeedFilter('cit')">⭐ Citate</div>
+     <div class="chip" data-f="men" onclick="setFeedFilter('men')">💬 Menzionate</div>
+     <div class="chip" data-f="gap" onclick="setFeedFilter('gap')">⚠️ Gap</div>
+     <select id="fType" onchange="renderFeed()" style="width:auto"><option value="">Search + Chat</option>
+       <option value="search">🔍 Search</option><option value="chat">💬 Chat</option></select>
+   </div>
+   <div id="feed"></div>`;
+  renderFeed();
+}
+let _feedFilter="all";
+window.setFeedFilter = f => { _feedFilter=f; document.querySelectorAll("[data-f]").forEach(c=>c.classList.toggle("active",c.dataset.f===f)); renderFeed(); };
+window.renderFeed = function(){
+  const m=document.getElementById("fModel")?.value, ty=document.getElementById("fType")?.value;
+  let rs = DATA.responses.slice();
+  if(m) rs=rs.filter(r=>r.model_id===m);
+  if(ty) rs=rs.filter(r=>modelType(r.model_id)===ty);
+  if(_feedFilter==="cit") rs=rs.filter(r=>r.has_target_citation);
+  if(_feedFilter==="men") rs=rs.filter(r=>r.has_target_mention);
+  if(_feedFilter==="gap") rs=rs.filter(r=>r.has_target_mention&&!r.has_target_citation);
+  document.getElementById("feed").innerHTML = rs.slice(0,80).map(r=>`
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <div><span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelType(r.model_id)==='chat'?'💬':'🔍'} ${esc(modelLabel(r.model_id))}</span>
+          ${r.has_target_citation?'<span class="pill pill-green">⭐ citato</span>':''}
+          ${r.has_target_mention?'<span class="pill pill-orange">💬 menzionato</span>':''}</div>
+        <span class="muted" style="font-size:.78rem">${fmtDate(r.created_at)}</span>
+      </div>
+      <div class="muted" style="font-size:.82rem;margin-bottom:6px">▸ ${esc(r.prompts?.text||"")}</div>
+      <div class="resp-text">${esc(r.text||"").slice(0,1200)}</div>
+      ${(r.citations||[]).length? `<div style="margin-top:8px;font-size:.76rem" class="muted">${(r.citations||[]).length} citazioni · ${(r.citations||[]).filter(c=>c.is_target_domain).length} target</div>`:""}
+    </div>`).join("") || `<div class="card muted">Nessuna risposta con questi filtri.</div>`;
+};
+
+function tabDetail(){
+  const pid = +(new URLSearchParams(location.hash.split("?")[1]||"").get("p")) || (DATA.prompts[0]?.id);
+  const c = document.getElementById("content");
+  const opts = DATA.prompts.map(p=>`<option value="${p.id}" ${p.id===pid?'selected':''}>#${p.id} · ${esc(p.text).slice(0,60)}</option>`).join("");
+  const rs = DATA.responses.filter(r=>r.prompt_id===pid);
+  const byModel = {}; rs.forEach(r=>{(byModel[r.model_id] ||= []).push(r);});
+  const n=rs.length;
+  c.innerHTML = sectionHeader("Dettaglio","Prompt Detail","") + `
+   <div class="card" style="margin-bottom:14px"><select onchange="location.hash='#/detail?p='+this.value" style="max-width:560px">${opts}</select>
+     <div style="display:flex;gap:24px;margin-top:14px">
+       <div><div class="kpi-label">Citation rate</div><div class="kpi-value" style="color:var(--coral)">${pct1(n?rs.filter(x=>x.has_target_citation).length/n:0)}</div></div>
+       <div><div class="kpi-label">Mention rate</div><div class="kpi-value">${pct1(n?rs.filter(x=>x.has_target_mention).length/n:0)}</div></div>
+       <div><div class="kpi-label"># risposte</div><div class="kpi-value">${n}</div></div>
+     </div>
+   </div>
+   ${Object.entries(byModel).map(([mid,list])=>`
+     <div class="card" style="margin-bottom:12px">
+       <div style="font-weight:600;margin-bottom:8px">${esc(modelLabel(mid))} <span class="muted" style="font-weight:400">· ${list.length} ripetizioni</span></div>
+       ${list.map(r=>`<div style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:12px;margin-bottom:10px">
+         <div class="muted" style="font-size:.74rem">${fmtDate(r.created_at)} ${r.has_target_citation?'· ⭐ citato':r.has_target_mention?'· 💬 menzionato':''}</div>
+         <div class="resp-text" style="max-height:160px">${esc(r.text||"").slice(0,800)}</div></div>`).join("")}
+     </div>`).join("") || `<div class="card muted">Nessuna risposta per questo prompt.</div>`}`;
+}
+
+function tabModels(){
+  const rows = perModel();
+  const search = rows.filter(r=>r.type==="search"), chat = rows.filter(r=>r.type==="chat");
+  const tbl = (data,star)=>`<div class="card" style="overflow:auto"><table><thead><tr>
+     <th>Modello</th><th># risp</th><th>${star==='cit'?'Citation ⭐':'Mention 💬'}</th><th>${star==='cit'?'Mention':'Citation'}</th><th>Avg cit/risp</th><th>Latency</th>
+   </tr></thead><tbody>${data.map(r=>`<tr>
+     <td style="font-weight:500">${esc(r.label)}</td><td>${r.n}</td>
+     <td style="min-width:90px">${pct1(star==='cit'?r.citation_rate:r.mention_rate)} ${bar(star==='cit'?r.citation_rate:r.mention_rate)}</td>
+     <td>${pct1(star==='cit'?r.mention_rate:r.citation_rate)}</td>
+     <td>${r.avg_cit.toFixed(1)}</td><td class="muted">${Math.round(r.avg_lat)}ms</td>
+   </tr>`).join("")}</tbody></table></div>`;
+  document.getElementById("content").innerHTML = sectionHeader("Confronto","Models","Search vs Chat") +
+   `<div style="font-weight:600;margin:6px 0 8px">🔍 Modelli Search (con web search)</div>${tbl(search,'cit')}
+    <div style="font-weight:600;margin:18px 0 8px">💬 Modelli Chat (senza web search)</div>
+    <div class="muted" style="font-size:.82rem;margin-bottom:8px">Per i chat la citation rate è sempre 0 (niente web): la metrica chiave è il <b>mention rate</b>.</div>${tbl(chat,'men')}`;
+}
+
+function tabCitations(){
+  const cits = DATA.responses.flatMap(r=>(r.citations||[]));
+  const byDom={}; cits.forEach(c=>{(byDom[c.domain] ??= {n:0,t:c.is_target_domain,co:c.is_competitor_domain}); byDom[c.domain].n++;});
+  const rows = Object.entries(byDom).map(([d,v])=>({d,...v})).sort((a,b)=>b.n-a.n);
+  const d=domainMix();
+  document.getElementById("content").innerHTML = sectionHeader("Citazioni","Citations","Da dove arrivano le fonti citate dagli LLM") +
+   `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+     ${kpiCard("🟢 Target", pct(d.total?d.target/d.total:0), d.target+" citazioni", "var(--green)")}
+     ${kpiCard("🟠 Competitor", pct(d.total?d.competitor/d.total:0), d.competitor+" citazioni", "var(--orange)")}
+     ${kpiCard("⚪ Altri", pct(d.total?d.other/d.total:0), d.other+" citazioni", "var(--slate)")}
+   </div>
+   <div class="card" style="overflow:auto;max-height:520px"><table><thead><tr><th>Dominio</th><th>Tipo</th><th># citazioni</th></tr></thead><tbody>
+     ${rows.map(r=>`<tr><td>${esc(r.d)}</td><td>${r.t?'<span class="pill pill-green">target</span>':r.co?'<span class="pill pill-orange">competitor</span>':'<span class="pill pill-slate">altro</span>'}</td><td>${r.n}</td></tr>`).join("")}
+   </tbody></table></div>`;
+}
+
+function tabReco(){
+  const pp = perPrompt().filter(p=>p.n_resp>0);
+  const gaps = pp.filter(p=>(p.mention_rate||0)-(p.citation_rate||0)>0).sort((a,b)=>((b.mention_rate-b.citation_rate)-(a.mention_rate-a.citation_rate))).slice(0,10);
+  const noCit = pp.filter(p=>(p.citation_rate||0)===0).slice(0,10);
+  const card=(t,sub,items,col)=>`<div class="card" style="margin-bottom:14px"><div style="font-weight:600;color:${col}">${t}</div><div class="muted" style="font-size:.82rem;margin-bottom:8px">${sub}</div>${items.length?items.map(p=>`<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem">▸ ${esc(p.text)} <span class="muted">(${pct(p.mention_rate)} men / ${pct(p.citation_rate)} cit)</span></div>`).join(""):'<span class="muted">Nessuno 🎉</span>'}</div>`;
+  document.getElementById("content").innerHTML = sectionHeader("Azioni","Recommendations","Dove agire per migliorare la visibilità") +
+    card("⚠️ Citation gap — menzionati ma non citati","Opportunità SEO/AEO: farsi linkare dove già ti nominano.",gaps,"#9A3412") +
+    card("🔴 Mai citati","Prompt dove talentgarden.com non compare mai tra le fonti.",noCit,"#B91C1C");
+}
+
+function tabCosti(){
+  const R=DATA.responses;
+  const tot=R.reduce((a,r)=>a+estCost(r),0);
+  const byModel={}; R.forEach(r=>{(byModel[r.model_id] ??= {n:0,c:0,tok:0});byModel[r.model_id].n++;byModel[r.model_id].c+=estCost(r);byModel[r.model_id].tok+=(r.tokens||0);});
+  const byRun={}; R.forEach(r=>{(byRun[r.run_id] ??= {n:0,c:0,last:null});byRun[r.run_id].n++;byRun[r.run_id].c+=estCost(r);if(!byRun[r.run_id].last||r.created_at>byRun[r.run_id].last)byRun[r.run_id].last=r.created_at;});
+  document.getElementById("content").innerHTML = sectionHeader("Spesa","Costi & Run","Stima USD basata sui token × pricing") +
+   `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+     ${kpiCard("💰 Costo totale", "$"+tot.toFixed(3), R.length+" risposte", "var(--coral)")}
+     ${kpiCard("🔄 Run", Object.keys(byRun).length, "esecuzioni")}
+     ${kpiCard("📊 Costo/risposta", "$"+(R.length?tot/R.length:0).toFixed(4), "media")}
+   </div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+   <div class="card"><div style="font-weight:600;margin-bottom:8px">Per modello</div><table><thead><tr><th>Modello</th><th># risp</th><th>Token</th><th>Costo</th></tr></thead><tbody>
+     ${Object.entries(byModel).sort((a,b)=>b[1].c-a[1].c).map(([m,v])=>`<tr><td>${esc(modelLabel(m))}</td><td>${v.n}</td><td class="muted">${v.tok.toLocaleString()}</td><td>$${v.c.toFixed(4)}</td></tr>`).join("")}
+   </tbody></table></div>
+   <div class="card"><div style="font-weight:600;margin-bottom:8px">Storico run</div><table><thead><tr><th>Run</th><th>Data</th><th># risp</th><th>Costo</th></tr></thead><tbody>
+     ${Object.entries(byRun).sort((a,b)=>(b[1].last||"").localeCompare(a[1].last||"")).slice(0,20).map(([id,v])=>`<tr><td class="muted">#${id}</td><td class="muted" style="font-size:.78rem">${fmtDate(v.last)}</td><td>${v.n}</td><td>$${v.c.toFixed(4)}</td></tr>`).join("")}
+   </tbody></table></div></div>`;
+}
+
+// ============ AZIONI (n8n) ============
+async function callN8n(url, body, label){
+  if(!url){ alert(`⚙️ Webhook n8n non ancora configurato per: ${label}.\nQuesta azione sarà attiva quando colleghiamo n8n.`); return false; }
+  try{
+    const res = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    return true;
+  }catch(e){ alert("Errore chiamando n8n: "+e.message); return false; }
+}
+window.actionRun = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); const rep=+document.getElementById("repeatN").value||1;
+  if(await callN8n(N8N.runBatch,{prompt_ids:ids,repeat:rep},"Rilancia")){ alert(`▶️ Avviata esecuzione di ${ids.length} prompt × ${rep}. Le risposte compaiono tra poco — usa ↻ Aggiorna dati.`);} };
+window.actionDelete = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); if(!confirm(`Eliminare ${ids.length} prompt e tutte le risposte collegate? Irreversibile.`))return;
+  if(await callN8n(N8N.remove,{prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Usa ↻ Aggiorna dati."); } };
+window.actionCreate = async ()=>{ const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
+  if(await callN8n(N8N.create,{text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Usa ↻ Aggiorna dati."); } };
+window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
+  document.getElementById("genResult").textContent="Generazione in corso…";
+  if(await callN8n(N8N.generate,{url},"Genera")){ document.getElementById("genResult").textContent="🪄 Richiesta inviata a n8n."; } else document.getElementById("genResult").textContent=""; };
+
+// ============ ROUTER ============
+function route(){
+  const id = (location.hash.replace("#/","").split("?")[0]) || "overview";
+  renderNav(id);
+  ({overview:tabOverview,prompts:tabPrompts,risposte:tabRisposte,detail:tabDetail,
+    models:tabModels,citations:tabCitations,reco:tabReco,costi:tabCosti}[id]||tabOverview)();
+}
+window.addEventListener("hashchange", ()=>{ if(DATA.prompts.length||DATA.responses.length) route(); });
+loadAll();
+</script>
+</body>
+</html>
