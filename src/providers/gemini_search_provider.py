@@ -17,22 +17,29 @@ from src.providers.base import Citation, LLMProvider, LLMResponse, ProviderError
 class GeminiSearchProvider(LLMProvider):
     provider_name = "gemini"
 
-    def __init__(self, model_id: str, model: str, **kwargs):
+    def __init__(self, model_id: str, model: str,
+                 enable_web_search: bool = True, **kwargs):
         super().__init__(model_id, model, **kwargs)
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ProviderError("GOOGLE_API_KEY non configurata")
         self.client = genai.Client(api_key=api_key)
+        self.enable_web_search = enable_web_search
 
     def _do_query(self, prompt: str) -> LLMResponse:
         start = time.time()
         try:
+            cfg = (
+                types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                )
+                if self.enable_web_search
+                else None
+            )
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    tools=[types.Tool(google_search=types.GoogleSearch())],
-                ),
+                config=cfg,
             )
         except Exception as e:  # noqa: BLE001
             raise ProviderError(f"Gemini error: {e}") from e

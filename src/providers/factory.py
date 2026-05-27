@@ -23,19 +23,31 @@ def build_provider(model_cfg: dict) -> LLMProvider:
     provider = model_cfg["provider"]
     model_id = model_cfg["id"]
     model = model_cfg["model"]
+    # web_search: bool — se False, il provider salta i tool di web search e
+    # usa il modello in modalità "chat" (utile per confrontare brand awareness
+    # senza search vs con search).
+    web_search = bool(model_cfg.get("web_search", True))
 
     if provider == "perplexity":
+        # Perplexity: tutti i modelli sonar fanno search di default, non c'è
+        # un'opzione no-search lato API. Ignoriamo il flag.
         from src.providers.perplexity_provider import PerplexityProvider
         return PerplexityProvider(model_id=model_id, model=model)
     if provider == "openai":
         from src.providers.openai_search_provider import OpenAISearchProvider
-        return OpenAISearchProvider(model_id=model_id, model=model)
+        return OpenAISearchProvider(
+            model_id=model_id, model=model, enable_web_search=web_search,
+        )
     if provider == "anthropic":
         from src.providers.anthropic_search_provider import AnthropicSearchProvider
-        return AnthropicSearchProvider(model_id=model_id, model=model)
+        return AnthropicSearchProvider(
+            model_id=model_id, model=model, enable_web_search=web_search,
+        )
     if provider == "gemini":
         from src.providers.gemini_search_provider import GeminiSearchProvider
-        return GeminiSearchProvider(model_id=model_id, model=model)
+        return GeminiSearchProvider(
+            model_id=model_id, model=model, enable_web_search=web_search,
+        )
 
     raise ProviderError(f"Provider sconosciuto: {provider}")
 
