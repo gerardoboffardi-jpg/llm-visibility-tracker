@@ -1175,30 +1175,31 @@ def render_sidebar(
         unsafe_allow_html=True,
     )
 
-    # ---------- NAV CUSTOM (sostituisce il nav nativo nascosto) ----------
-    # Link HTML diretti: Streamlit espone ogni pagina come route /Nome_File_Senza_Numero.
-    # Più robusto di st.page_link, che ha problemi con path relativi.
+    # ---------- NAV CLIENT-SIDE (st.page_link) ----------
+    # st.page_link naviga SENZA reload completo della pagina: la sessione resta
+    # attiva, niente re-import né re-render da zero → cambio pagina molto più
+    # veloce dei vecchi link <a target="_self"> (che facevano un full reload).
     nav_pages = [
-        ("/",                "Home",            "🏠"),
-        ("/Overview",        "Overview",        "📊"),
-        ("/Risposte",        "Risposte",        "💬"),
-        ("/Prompts",         "Prompts",         "📝"),
-        ("/Prompt_Detail",   "Prompt Detail",   "🔬"),
-        ("/Citations",       "Citations",       "🔗"),
-        ("/Models",          "Models",          "🤖"),
-        ("/Recommendations", "Recommendations", "🎯"),
-        ("/Costi_e_Run",     "Costi & Run",     "💰"),
+        ("app.py",                        "Home",            "🏠"),
+        ("pages/1_Overview.py",           "Overview",        "📊"),
+        ("pages/2_Risposte.py",           "Risposte",        "💬"),
+        ("pages/3_Prompts.py",            "Prompts",         "📝"),
+        ("pages/4_Prompt_Detail.py",      "Prompt Detail",   "🔬"),
+        ("pages/5_Citations.py",          "Citations",       "🔗"),
+        ("pages/6_Models.py",             "Models",          "🤖"),
+        ("pages/8_Recommendations.py",    "Recommendations", "🎯"),
+        ("pages/7_Costi_e_Run.py",        "Costi & Run",     "💰"),
     ]
-    nav_html = '<div class="tag-sidebar-nav">'
     for path, label, icon in nav_pages:
-        nav_html += (
-            f'<a href="{path}" target="_self" class="tag-sidebar-nav-item">'
-            f'<span class="tag-sidebar-nav-icon">{icon}</span>'
-            f'<span>{label}</span>'
-            f'</a>'
-        )
-    nav_html += "</div>"
-    st.sidebar.markdown(nav_html, unsafe_allow_html=True)
+        try:
+            st.sidebar.page_link(path, label=label, icon=icon, use_container_width=True)
+        except Exception:  # noqa: BLE001
+            # fallback robusto se il path non è risolvibile in qualche ambiente
+            st.sidebar.markdown(
+                f'<a href="/{path.split("/")[-1].split("_", 1)[-1].replace(".py", "")}" '
+                f'target="_self" class="tag-sidebar-nav-item">{icon} {label}</a>',
+                unsafe_allow_html=True,
+            )
 
     # ---------- BRAND MONITORATO ----------
     st.sidebar.markdown(
