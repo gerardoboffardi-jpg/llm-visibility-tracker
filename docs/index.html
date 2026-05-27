@@ -96,15 +96,10 @@
 // ============ CONFIG ============
 const SUPABASE_URL = "https://qbcmnqfnaixbhbuwfgdf.supabase.co";
 const SUPABASE_KEY = "sb_publishable_faBNmujDvlzyKB5b6SydgA_kOnEvTU5";
-// Webhook n8n per le azioni di scrittura (riempire in fase n8n). Se vuoti → bottoni mostrano avviso.
-const N8N = {
-  run:       "",   // POST {prompt_id, repeat}
-  runBatch:  "",   // POST {prompt_ids, repeat}
-  create:    "",   // POST {text, category, geo, intent}
-  remove:    "",   // POST {prompt_ids}
-  generate:  "",   // POST {url}
-  seoPlan:   "",   // POST {} → action seo-plan
-};
+// Webhook n8n unico: il sito posta {action, ...}; n8n inoltra a GitHub Actions
+// (repository_dispatch), il dispatcher Python esegue l'azione e scrive su Supabase.
+const N8N_URL = "https://talentgarden.app.n8n.cloud/webhook/llmv-visibility";
+const N8N = { run:N8N_URL, runBatch:N8N_URL, create:N8N_URL, remove:N8N_URL, generate:N8N_URL, seoPlan:N8N_URL };
 const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
 // Registro modelli (mirror di config/models.yaml) per search/chat + pricing USD per 1M token
 const MODELS = {
@@ -536,11 +531,11 @@ async function callN8n(url, body, label){
   }catch(e){ alert("Errore chiamando n8n: "+e.message); return false; }
 }
 window.actionRun = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); const rep=+document.getElementById("repeatN").value||1;
-  if(await callN8n(N8N.runBatch,{prompt_ids:ids,repeat:rep},"Rilancia")){ alert(`▶️ Avviata esecuzione di ${ids.length} prompt × ${rep}. Le risposte compaiono tra poco — usa ↻ Aggiorna dati.`);} };
+  if(await callN8n(N8N.runBatch,{action:"run-batch",prompt_ids:ids,repeat:rep},"Rilancia")){ alert(`▶️ Avviata esecuzione di ${ids.length} prompt × ${rep}. Le risposte compaiono tra ~1-2 min — usa ↻ Aggiorna dati.`);} };
 window.actionDelete = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); if(!confirm(`Eliminare ${ids.length} prompt e tutte le risposte collegate? Irreversibile.`))return;
-  if(await callN8n(N8N.remove,{prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Usa ↻ Aggiorna dati."); } };
+  if(await callN8n(N8N.remove,{action:"delete",prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Tra ~1 min usa ↻ Aggiorna dati."); } };
 window.actionCreate = async ()=>{ const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
-  if(await callN8n(N8N.create,{text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Usa ↻ Aggiorna dati."); } };
+  if(await callN8n(N8N.create,{action:"create",text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Tra ~1 min usa ↻ Aggiorna dati."); } };
 window.actionSeoPlan = async ()=>{ const sel=document.getElementById("gapSel")?.value || ""; const box=document.getElementById("seoPlanBox");
   if(box) box.innerHTML=`<div class="muted" style="font-size:.84rem">⏳ Generazione piano ${sel?'mirato al gap #'+sel:'globale'} in corso… (~1 min, poi ricarica con ↻)</div>`;
   await callN8n(N8N.seoPlan,{action:"seo-plan", prompt_id: sel||null},"Genera piano SEO/GEO"); };
@@ -548,12 +543,11 @@ window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_
   gtab_url.classList.toggle('active',t==='url'); gtab_pdf.classList.toggle('active',t==='pdf'); };
 window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
   document.getElementById("genResult").textContent="Generazione in corso…";
-  if(await callN8n(N8N.generate,{url},"Genera da URL")){ document.getElementById("genResult").textContent="🪄 Richiesta inviata. Usa ↻ Aggiorna dati tra poco."; } else document.getElementById("genResult").textContent=""; };
+  if(await callN8n(N8N.generate,{action:"generate",url},"Genera da URL")){ document.getElementById("genResult").textContent="🪄 Richiesta inviata. I prompt generati compaiono tra ~1-2 min: usa ↻ Aggiorna dati."; } else document.getElementById("genResult").textContent=""; };
 window.actionGeneratePdf = async ()=>{ const f=document.getElementById("gen_pdf").files[0]; if(!f)return alert("Seleziona un PDF.");
-  document.getElementById("genResult").textContent="Lettura PDF…";
-  const b64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});
-  document.getElementById("genResult").textContent="Generazione in corso…";
-  if(await callN8n(N8N.generate,{pdf_base64:b64,filename:f.name},"Genera da PDF")){ document.getElementById("genResult").textContent="🪄 PDF inviato. Usa ↻ Aggiorna dati tra poco."; } else document.getElementById("genResult").textContent=""; };
+  // La generazione da PDF non passa dal bridge web (limite payload). Suggerisce l'alternativa.
+  document.getElementById("genResult").innerHTML='ℹ️ La generazione da <b>PDF</b> non è ancora disponibile via web. Usa la generazione <b>da URL</b>, oppure caricami il PDF e lo elaboro io.';
+  };
 
 // ============ ROUTER ============
 function route(){
