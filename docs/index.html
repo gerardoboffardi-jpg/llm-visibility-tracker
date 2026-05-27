@@ -62,6 +62,11 @@
   .muted{color:var(--muted)}
   .spinner{width:34px;height:34px;border:3px solid var(--coral-soft);border-top-color:var(--coral);border-radius:50%;animation:sp 1s linear infinite;margin:40px auto}
   @keyframes sp{to{transform:rotate(360deg)}}
+  .hscroll{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 12px;scroll-behavior:smooth}
+  .hscroll::-webkit-scrollbar{height:8px}.hscroll::-webkit-scrollbar-thumb{background:var(--coral-border);border-radius:99px}
+  .hcard{min-width:min(460px,82vw);max-width:460px;scroll-snap-align:start;flex:0 0 auto}
+  .sbtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:1rem;line-height:1;color:var(--ink)}
+  .sbtn:hover{background:var(--coral-soft);border-color:var(--coral-border)}
   .hidden{display:none}
 </style>
 </head>
@@ -230,7 +235,7 @@ function tabOverview(){
    <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:34px 40px;margin-bottom:22px">
      <div class="eyebrow" style="margin-bottom:10px">LLM Visibility · Talent Garden</div>
      <h1 style="font-size:clamp(2.1rem,3.4vw,3.1rem);font-weight:800;margin:0 0 10px;line-height:1.08">Quanto è visibile Talent Garden nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
-     <p class="muted" style="font-size:1.05rem;max-width:980px">Monitoriamo come ChatGPT, Perplexity, Claude e Gemini citano <b>talentgarden.com</b> su coworking, formazione e innovation.</p>
+     <p class="muted" style="font-size:1.02rem;line-height:1.5;max-width:720px">Monitoriamo se <b>ChatGPT, Perplexity, Claude e Gemini</b> citano <b>talentgarden.com</b> quando rispondono a domande reali su coworking, formazione e innovation.</p>
    </div>
    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
      ${kpiCard("⭐ Citation rate", pct1(k.citation_rate), k.n_responses+" risposte · "+k.n_prompts+" prompt", "var(--coral)")}
@@ -339,45 +344,66 @@ const selectedPrompts = () => [...document.querySelectorAll(".selp:checked")].ma
 
 function tabRisposte(){
   const c = document.getElementById("content");
-  c.innerHTML = sectionHeader("Feed","Risposte", DATA.responses.length+" risposte raccolte") + `
+  const promptOpts = [...new Map(DATA.responses.filter(r=>r.prompts).map(r=>[r.prompt_id, r.prompts.text])).entries()]
+    .map(([id,t])=>`<option value="${id}">#${id} · ${esc((t||"").slice(0,70))}</option>`).join("");
+  c.innerHTML = sectionHeader("Feed","Risposte", DATA.responses.length+" risposte raccolte · raggruppate per modello") + `
    <div class="card" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+     <select id="fPrompt" onchange="renderFeed()" style="width:auto;max-width:360px"><option value="">Tutti i prompt</option>${promptOpts}</select>
      <select id="fModel" onchange="renderFeed()" style="width:auto"><option value="">Tutti i modelli</option>
        ${[...new Set(DATA.responses.map(r=>r.model_id))].map(m=>`<option value="${m}">${esc(modelLabel(m))}</option>`).join("")}</select>
+     <select id="fType" onchange="renderFeed()" style="width:auto"><option value="">Search + Chat</option>
+       <option value="search">🔍 Search</option><option value="chat">💬 Chat</option></select>
+     <span style="width:1px;height:22px;background:var(--line)"></span>
      <div class="chip active" data-f="all" onclick="setFeedFilter('all')">Tutte</div>
      <div class="chip" data-f="cit" onclick="setFeedFilter('cit')">⭐ Citate</div>
      <div class="chip" data-f="men" onclick="setFeedFilter('men')">💬 Menzionate</div>
      <div class="chip" data-f="gap" onclick="setFeedFilter('gap')">⚠️ Gap</div>
-     <select id="fType" onchange="renderFeed()" style="width:auto"><option value="">Search + Chat</option>
-       <option value="search">🔍 Search</option><option value="chat">💬 Chat</option></select>
    </div>
    <div id="feed"></div>`;
   renderFeed();
 }
 let _feedFilter="all";
 window.setFeedFilter = f => { _feedFilter=f; document.querySelectorAll("[data-f]").forEach(c=>c.classList.toggle("active",c.dataset.f===f)); renderFeed(); };
-window.renderFeed = function(){
-  const m=document.getElementById("fModel")?.value, ty=document.getElementById("fType")?.value;
-  let rs = DATA.responses.slice();
-  if(m) rs=rs.filter(r=>r.model_id===m);
-  if(ty) rs=rs.filter(r=>modelType(r.model_id)===ty);
-  if(_feedFilter==="cit") rs=rs.filter(r=>r.has_target_citation);
-  if(_feedFilter==="men") rs=rs.filter(r=>r.has_target_mention);
-  if(_feedFilter==="gap") rs=rs.filter(r=>r.has_target_mention&&!r.has_target_citation);
-  document.getElementById("feed").innerHTML = rs.slice(0,80).map(r=>`
-    <div class="card" style="margin-bottom:12px">
+function respCard(r){
+  return `<div class="card hcard">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-          <span class="pill" style="background:#0F172A;color:#fff"><img class="mlogo" src="${modelLogo(r.model_id)}" alt="">${esc(modelLabel(r.model_id))}</span>
-          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelType(r.model_id)==='chat'?'chat':'search'}</span>
           ${r.has_target_citation?'<span class="pill pill-green">⭐ citato</span>':''}
           ${r.has_target_mention?'<span class="pill pill-orange">menzionato</span>':''}
+          ${!r.has_target_citation&&!r.has_target_mention?'<span class="pill pill-slate">assente</span>':''}
         </div>
         <span class="muted" style="font-size:.78rem;white-space:nowrap">${fmtDate(r.created_at)}</span>
       </div>
       <div class="muted" style="font-size:.82rem;margin-bottom:8px;font-weight:500">▸ ${esc(r.prompts?.text||"")}</div>
       <div class="resp-md">${mdText(r.text)}</div>
       ${(r.citations||[]).length? `<div style="margin-top:8px;font-size:.76rem" class="muted">${(r.citations||[]).length} citazioni · ${(r.citations||[]).filter(c=>c.is_target_domain).length} target</div>`:""}
-    </div>`).join("") || `<div class="card muted">Nessuna risposta con questi filtri.</div>`;
+    </div>`;
+}
+window.scrollSlider = (btn,dir)=>{ const sc=btn.closest('[data-modelrow]').querySelector('.hscroll'); sc.scrollBy({left:dir*480,behavior:'smooth'}); };
+window.renderFeed = function(){
+  const m=document.getElementById("fModel")?.value, ty=document.getElementById("fType")?.value, pid=document.getElementById("fPrompt")?.value;
+  let rs = DATA.responses.slice();
+  if(pid) rs=rs.filter(r=>String(r.prompt_id)===pid);
+  if(m) rs=rs.filter(r=>r.model_id===m);
+  if(ty) rs=rs.filter(r=>modelType(r.model_id)===ty);
+  if(_feedFilter==="cit") rs=rs.filter(r=>r.has_target_citation);
+  if(_feedFilter==="men") rs=rs.filter(r=>r.has_target_mention);
+  if(_feedFilter==="gap") rs=rs.filter(r=>r.has_target_mention&&!r.has_target_citation);
+  // Raggruppa per modello → slider orizzontale delle card
+  const groups={}; rs.forEach(r=>{(groups[r.model_id] ??= []).push(r);});
+  const ids=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+  document.getElementById("feed").innerHTML = ids.length? ids.map(mid=>{
+    const list=groups[mid];
+    return `<div data-modelrow style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="pill" style="background:#0F172A;color:#fff"><img class="mlogo" src="${modelLogo(mid)}" alt="">${esc(modelLabel(mid))}</span>
+        <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
+        <span class="muted" style="font-size:.8rem">${list.length} rispost${list.length===1?'a':'e'}</span>
+        ${list.length>1?`<span style="flex:1"></span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
+      </div>
+      <div class="hscroll">${list.map(respCard).join("")}</div>
+    </div>`;
+  }).join("") : `<div class="card muted">Nessuna risposta con questi filtri.</div>`;
 };
 
 function tabDetail(){
