@@ -44,9 +44,10 @@ def _expected_token(expected: str) -> str:
     return hashlib.sha256(f"llmvt::{expected}".encode()).hexdigest()
 
 
-@st.cache_resource
 def _cookie_manager() -> "stx.CookieManager":
-    # cache_resource → una sola istanza condivisa fra le pagine
+    # NON usare @st.cache_resource: CookieManager è un widget (component) e
+    # Streamlit vieta i widget dentro funzioni cached. Va istanziato a ogni run;
+    # il `key` fisso garantisce che sia lo stesso component fra le pagine.
     return stx.CookieManager(key="llmvt_cookie_mgr")
 
 
