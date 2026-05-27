@@ -43,12 +43,13 @@
   .btn-primary:hover{background:var(--coral-dark);color:#fff}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   table{width:100%;border-collapse:collapse;font-size:.86rem}
-  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5;box-shadow:0 1px 0 var(--line)}
+  .clickrow{cursor:pointer}.clickrow:hover td{background:var(--coral-soft)}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
   tr:hover td{background:#FBFCFE}
   .bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden}
   .bar>span{display:block;height:100%;background:var(--coral)}
-  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.72rem;font-weight:600;line-height:1.3;white-space:nowrap}
   .pill-green{background:#DCFCE7;color:#166534}.pill-orange{background:#FFEDD5;color:#9A3412}
   .pill-slate{background:#F1F5F9;color:#475569}.pill-coral{background:var(--coral-soft);color:var(--coral-dark)}
   .subtab{padding:7px 14px;border-radius:9px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--muted)}
@@ -97,6 +98,7 @@ const N8N = {
   create:    "",   // POST {text, category, geo, intent}
   remove:    "",   // POST {prompt_ids}
   generate:  "",   // POST {url}
+  seoPlan:   "",   // POST {} → action seo-plan
 };
 const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
 // Registro modelli (mirror di config/models.yaml) per search/chat + pricing USD per 1M token
@@ -291,10 +293,10 @@ function promptsList(rows){
      <th style="width:30px"></th><th>ID</th><th>Prompt</th><th>Cat.</th><th># risp</th>
      <th>Citation</th><th>Mention</th><th>Ultima run</th>
    </tr></thead><tbody>
-   ${rows.map(p=>`<tr>
-     <td><input type="checkbox" class="selp" value="${p.id}" style="width:auto"></td>
+   ${rows.map(p=>`<tr class="clickrow" onclick="if(event.target.type!=='checkbox')location.hash='#/detail?p=${p.id}'" title="Apri il dettaglio del prompt">
+     <td onclick="event.stopPropagation()"><input type="checkbox" class="selp" value="${p.id}" style="width:auto"></td>
      <td class="muted">#${p.id}</td>
-     <td><a href="#/detail?p=${p.id}" style="color:var(--ink);font-weight:500">${esc(p.text)}</a></td>
+     <td style="font-weight:500">${esc(p.text)}</td>
      <td><span class="pill pill-slate">${esc(p.category)||"—"}</span></td>
      <td>${p.n_resp}</td>
      <td style="min-width:90px">${pct(p.citation_rate)} ${bar(p.citation_rate)}</td>
@@ -363,13 +365,14 @@ window.renderFeed = function(){
   if(_feedFilter==="gap") rs=rs.filter(r=>r.has_target_mention&&!r.has_target_citation);
   document.getElementById("feed").innerHTML = rs.slice(0,80).map(r=>`
     <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelBadge(r.model_id)}</span>
-          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}" style="font-size:.68rem">${modelType(r.model_id)==='chat'?'💬 chat':'🔍 search'}</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:.88rem"><img class="mlogo" src="${modelLogo(r.model_id)}" alt="">${esc(modelLabel(r.model_id))}</span>
+          <span class="pill ${modelType(r.model_id)==='chat'?'pill-slate':'pill-coral'}">${modelType(r.model_id)==='chat'?'💬 chat':'🔍 search'}</span>
           ${r.has_target_citation?'<span class="pill pill-green">⭐ citato</span>':''}
-          ${r.has_target_mention?'<span class="pill pill-orange">💬 menzionato</span>':''}</div>
-        <span class="muted" style="font-size:.78rem">${fmtDate(r.created_at)}</span>
+          ${r.has_target_mention?'<span class="pill pill-orange">💬 menzionato</span>':''}
+        </div>
+        <span class="muted" style="font-size:.78rem;white-space:nowrap">${fmtDate(r.created_at)}</span>
       </div>
       <div class="muted" style="font-size:.82rem;margin-bottom:8px;font-weight:500">▸ ${esc(r.prompts?.text||"")}</div>
       <div class="resp-md">${mdText(r.text)}</div>
@@ -447,9 +450,27 @@ function tabReco(){
   const noCit = pp.filter(p=>(p.citation_rate||0)===0).slice(0,10);
   const card=(t,sub,items,col)=>`<div class="card" style="margin-bottom:14px"><div style="font-weight:600;color:${col}">${t}</div><div class="muted" style="font-size:.82rem;margin-bottom:8px">${sub}</div>${items.length?items.map(p=>`<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem">▸ ${esc(p.text)} <span class="muted">(${pct(p.mention_rate)} men / ${pct(p.citation_rate)} cit)</span></div>`).join(""):'<span class="muted">Nessuno 🎉</span>'}</div>`;
   document.getElementById("content").innerHTML = sectionHeader("Azioni","Recommendations","Dove agire per migliorare la visibilità") +
-    `<div class="infobox">🎯 Questa pagina trasforma i dati in <b>azioni concrete</b>: evidenzia i prompt dove Talent Garden è <b>menzionato ma non citato</b> (opportunità SEO/AEO: farsi linkare dove già ti nominano) e quelli dove <b>non compari mai</b> tra le fonti (da presidiare con contenuti dedicati).</div>` +
+    `<div class="infobox">🎯 Questa pagina trasforma i dati in <b>azioni concrete</b>: evidenzia i prompt dove Talent Garden è <b>menzionato ma non citato</b> (opportunità SEO/AEO: farsi linkare dove già ti nominano) e quelli dove <b>non compari mai</b> tra le fonti (da presidiare con contenuti dedicati).</div>
+    <div class="card" style="margin-bottom:14px;border:2px solid var(--coral-border);background:var(--coral-soft)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div><div style="font-weight:700">✨ Piano SEO/GEO con l'AI</div>
+          <div class="muted" style="font-size:.84rem">Claude analizza i dati e scrive un piano d'azione prioritizzato.</div></div>
+        <button class="btn btn-primary" onclick="actionSeoPlan()">✨ Genera piano</button>
+      </div>
+      <div id="seoPlanBox" style="margin-top:12px"></div>
+    </div>` +
     card("⚠️ Citation gap — menzionati ma non citati","Opportunità SEO/AEO: farsi linkare dove già ti nominano.",gaps,"#9A3412") +
     card("🔴 Mai citati","Prompt dove talentgarden.com non compare mai tra le fonti.",noCit,"#B91C1C");
+  loadSeoPlan();
+}
+async function loadSeoPlan(){
+  const box=document.getElementById("seoPlanBox"); if(!box)return;
+  const {data}=await sb.from("seo_plans").select("*").order("created_at",{ascending:false}).limit(1);
+  if(data&&data.length){ const p=data[0];
+    box.innerHTML=`<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px">
+      <div class="muted" style="font-size:.74rem;margin-bottom:6px">Ultimo piano · ${fmtDate(p.created_at)} · ${esc(p.model_used||"")}</div>
+      <div class="resp-md" style="max-height:none">${mdText(p.content)}</div></div>`;
+  } else { box.innerHTML=`<div class="muted" style="font-size:.84rem">Nessun piano ancora generato. Clicca "Genera piano".</div>`; }
 }
 
 function tabCosti(){
@@ -487,6 +508,9 @@ window.actionDelete = async ()=>{ const ids=selectedPrompts(); if(!ids.length)re
   if(await callN8n(N8N.remove,{prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Usa ↻ Aggiorna dati."); } };
 window.actionCreate = async ()=>{ const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
   if(await callN8n(N8N.create,{text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Usa ↻ Aggiorna dati."); } };
+window.actionSeoPlan = async ()=>{ const box=document.getElementById("seoPlanBox");
+  if(box) box.innerHTML='<div class="muted" style="font-size:.84rem">⏳ Generazione piano in corso… (richiede ~1 min, poi usa ↻ Aggiorna dati o riapri la tab)</div>';
+  await callN8n(N8N.seoPlan,{action:"seo-plan"},"Genera piano SEO/GEO"); };
 window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_pdf_box.style.display = t==='pdf'?'flex':'none';
   gtab_url.classList.toggle('active',t==='url'); gtab_pdf.classList.toggle('active',t==='pdf'); };
 window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");

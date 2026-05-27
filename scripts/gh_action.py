@@ -73,10 +73,72 @@ def main() -> None:
             except ps.DuplicatePromptError:
                 pass
         print(f"  generati {len(res.prompts)} prompt da {url}, aggiunti {added} (modello {res.model_used})")
+    elif action == "seo-plan":
+        _generate_seo_plan()
     else:
         raise SystemExit(f"Azione sconosciuta: {action}")
 
     print("✓ fatto")
+
+
+def _generate_seo_plan() -> None:
+    """Costruisce un contesto dai dati (metriche + gap + competitor) e fa scrivere
+    a Claude un piano SEO/GEO (AEO) in italiano; salva il risultato in seo_plans."""
+    import os as _os
+    from collections import Counter
+    from sqlalchemy import text
+    from src.storage import get_session
+
+    with get_session() as s:
+        n = s.execute(text("select count(*) from responses")).scalar() or 0
+        n_cit = s.execute(text("select count(*) from responses where has_target_citation")).scalar() or 0
+        n_men = s.execute(text("select count(*) from responses where has_target_mention")).scalar() or 0
+        gap_rows = s.execute(text(
+            "select p.text, count(*) filter (where r.has_target_mention) as men, "
+            "count(*) filter (where r.has_target_citation) as cit, count(*) as tot "
+            "from prompts p join responses r on r.prompt_id=p.id group by p.id, p.text "
+            "having count(*) filter (where r.has_target_mention) > count(*) filter (where r.has_target_citation) "
+            "order by (count(*) filter (where r.has_target_mention)-count(*) filter (where r.has_target_citation)) desc limit 12"
+        )).fetchall()
+        comp = s.execute(text(
+            "select domain, count(*) c from citations where is_competitor_domain group by domain order by c desc limit 10"
+        )).fetchall()
+        nocit = s.execute(text(
+            "select p.text from prompts p join responses r on r.prompt_id=p.id "
+            "group by p.id,p.text having count(*) filter (where r.has_target_citation)=0 limit 12"
+        )).fetchall()
+
+    cr = (n_cit / n) if n else 0
+    mr = (n_men / n) if n else 0
+    ctx = {
+        "citation_rate": round(cr, 3), "mention_rate": round(mr, 3), "n_responses": n,
+        "gap_prompts": [g[0] for g in gap_rows],
+        "never_cited_prompts": [g[0] for g in nocit],
+        "competitor_domains": [f"{c[0]} ({c[1]})" for c in comp],
+    }
+    import json as _json
+    user = (
+        "Dati di visibilità di Talent Garden (talentgarden.com) negli LLM:\n"
+        + _json.dumps(ctx, ensure_ascii=False, indent=2)
+        + "\n\nScrivi un PIANO SEO/GEO (Generative Engine Optimization / AEO) operativo in ITALIANO, in markdown, "
+        "che spieghi azioni concrete per aumentare citation rate e mention rate: priorità, contenuti da creare, "
+        "domini su cui farsi linkare (dove i competitor dominano), prompt/temi da presidiare. Massimo 700 parole, "
+        "strutturato in sezioni con bullet azionabili."
+    )
+    import anthropic
+    client = anthropic.Anthropic()
+    model = "claude-sonnet-4-5"
+    resp = client.messages.create(
+        model=model, max_tokens=2000,
+        system="Sei un consulente senior SEO/GEO esperto di come gli LLM scelgono e citano le fonti. Scrivi piani concreti e prioritizzati.",
+        messages=[{"role": "user", "content": user}],
+    )
+    content = "".join(b.text for b in resp.content if hasattr(b, "text"))
+    with get_session() as s:
+        s.execute(text("insert into seo_plans(content, model_used) values(:c, :m)"),
+                  {"c": content, "m": model})
+        s.commit()
+    print(f"  piano SEO/GEO generato ({len(content)} char) e salvato")
 
 
 if __name__ == "__main__":
