@@ -55,7 +55,7 @@
 
 - id: gemini-2-flash-search
   provider: gemini
-  model: gemini-2.0-flash
+  model: gemini-2.5-flash
   web_search: true
   priority: high
   enabled: true
@@ -92,7 +92,7 @@
 
 - id: gemini-2-flash-chat
   provider: gemini
-  model: gemini-2.0-flash
+  model: gemini-2.5-flash
   web_search: false
   priority: medium
   enabled: true

@@ -2,16 +2,67 @@
 
 Docs: https://ai.google.dev/gemini-api/docs/grounding
 Citazioni in `response.candidates[0].grounding_metadata.grounding_chunks`.
+
+Autenticazione — due modalità:
+1. **Vertex AI + ADC** (Application Default Credentials): impostare
+   `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`.
+   In locale le credenziali arrivano da `gcloud auth application-default login`
+   (lo script setup_adc.sh). Su Streamlit Cloud si passa il JSON del service
+   account come secret `GCP_SERVICE_ACCOUNT_JSON`: viene scritto su file e
+   esposto via `GOOGLE_APPLICATION_CREDENTIALS`.
+2. **API key** (fallback): `GOOGLE_API_KEY`.
 """
 from __future__ import annotations
 
+import json
 import os
+import tempfile
 import time
+from pathlib import Path
 
 from google import genai
 from google.genai import types
 
 from src.providers.base import Citation, LLMProvider, LLMResponse, ProviderError
+
+
+def _cfg(key: str, default: str | None = None) -> str | None:
+    """Legge una config da env var, con fallback su st.secrets (Streamlit Cloud
+    non espone i secrets come env var automaticamente)."""
+    val = os.getenv(key)
+    if val:
+        return val
+    try:
+        import streamlit as st  # type: ignore
+        v = st.secrets.get(key)  # type: ignore[attr-defined]
+        if v:
+            return str(v)
+    except Exception:  # noqa: BLE001
+        pass
+    return default
+
+
+def _ensure_adc_credentials() -> None:
+    """Su Streamlit Cloud non si può fare `gcloud auth`: se è presente il JSON
+    del service account (secret/env `GCP_SERVICE_ACCOUNT_JSON`), lo scrive su un
+    file temporaneo e imposta GOOGLE_APPLICATION_CREDENTIALS per ADC."""
+    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        return  # già configurato (es. ADC locale)
+    sa_json = _cfg("GCP_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        return
+    try:
+        # valida che sia JSON
+        json.loads(sa_json)
+        path = Path(tempfile.gettempdir()) / "llmvt_gcp_sa.json"
+        path.write_text(sa_json, encoding="utf-8")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(path)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _use_vertex() -> bool:
+    return (_cfg("GOOGLE_GENAI_USE_VERTEXAI", "") or "").strip().lower() in ("1", "true", "yes")
 
 
 class GeminiSearchProvider(LLMProvider):
@@ -20,10 +71,27 @@ class GeminiSearchProvider(LLMProvider):
     def __init__(self, model_id: str, model: str,
                  enable_web_search: bool = True, **kwargs):
         super().__init__(model_id, model, **kwargs)
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ProviderError("GOOGLE_API_KEY non configurata")
-        self.client = genai.Client(api_key=api_key)
+
+        if _use_vertex():
+            # Vertex AI + ADC
+            _ensure_adc_credentials()
+            project = _cfg("GOOGLE_CLOUD_PROJECT")
+            location = _cfg("GOOGLE_CLOUD_LOCATION", "us-central1")
+            if not project:
+                raise ProviderError(
+                    "Vertex AI abilitato ma GOOGLE_CLOUD_PROJECT non configurato"
+                )
+            self.client = genai.Client(vertexai=True, project=project, location=location)
+        else:
+            # Gemini Developer API con API key
+            api_key = _cfg("GOOGLE_API_KEY")
+            if not api_key:
+                raise ProviderError(
+                    "Gemini: configura GOOGLE_API_KEY oppure ADC/Vertex "
+                    "(GOOGLE_GENAI_USE_VERTEXAI=true + GOOGLE_CLOUD_PROJECT)"
+                )
+            self.client = genai.Client(api_key=api_key)
+
         self.enable_web_search = enable_web_search
 
     def _do_query(self, prompt: str) -> LLMResponse:
