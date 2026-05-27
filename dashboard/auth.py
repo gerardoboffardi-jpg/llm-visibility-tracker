@@ -3,28 +3,35 @@
 Se `APP_PASSWORD` non è settata in secrets o env, l'auth è disattivata
 (comodo per uso locale).
 
-L'autenticazione viene persistita in un cookie del browser (hash della
-password, non la password in chiaro) così da NON richiedere il login ad ogni
-reload della pagina. `st.session_state` da solo non basta: Streamlit lo azzera
-ad ogni ricaricamento completo della pagina.
+Persistenza login — approccio ibrido (diagnosticato sul campo):
+- **LETTURA**: `st.context.cookies` (nativo Streamlit, SINCRONO). Legge i cookie
+  reali del browser senza componenti → nessun flash, nessuna race asincrona,
+  funziona a ogni reload completo (anche con la navigazione del sidebar che usa
+  link <a>).
+- **SCRITTURA**: `streamlit-cookies-controller` (solo al login). Il suo `set()`
+  scrive un cookie di prima parte che persiste; verificato che `st.context`
+  lo rilegge correttamente al reload successivo.
+
+`st.session_state` da solo non basta: Streamlit lo azzera a ogni reload, e la
+navigazione del sidebar fa reload completi.
 """
 from __future__ import annotations
 
-import datetime as _dt
 import hashlib
 import hmac
 import os
+import time
 
 import streamlit as st
 
 try:
-    import extra_streamlit_components as stx  # type: ignore
+    from streamlit_cookies_controller import CookieController  # type: ignore
     _HAS_COOKIES = True
 except Exception:  # noqa: BLE001
     _HAS_COOKIES = False
 
 _COOKIE_NAME = "llmvt_auth"
-_COOKIE_DAYS = 30
+_COOKIE_MAX_AGE_DAYS = 30
 
 
 def _expected_password() -> str | None:
@@ -44,11 +51,12 @@ def _expected_token(expected: str) -> str:
     return hashlib.sha256(f"llmvt::{expected}".encode()).hexdigest()
 
 
-def _cookie_manager() -> "stx.CookieManager":
-    # NON usare @st.cache_resource: CookieManager è un widget (component) e
-    # Streamlit vieta i widget dentro funzioni cached. Va istanziato a ogni run;
-    # il `key` fisso garantisce che sia lo stesso component fra le pagine.
-    return stx.CookieManager(key="llmvt_cookie_mgr")
+def _read_cookie_token() -> str | None:
+    """Legge il token dal cookie in modo sincrono (nativo, niente componente)."""
+    try:
+        return st.context.cookies.get(_COOKIE_NAME)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def require_password() -> bool:
@@ -69,32 +77,11 @@ def require_password() -> bool:
     if st.session_state.get("_authenticated"):
         return True
 
-    # Il cookie va letto E scritto con lo STESSO CookieManager: st.context.cookies
-    # legge un "barattolo" diverso da quello dove il componente scrive, quindi
-    # non vedrebbe il cookie. Restiamo sul componente per coerenza.
-    cookies = _cookie_manager() if _HAS_COOKIES else None
-
-    if cookies is not None:
-        val = None
-        try:
-            val = cookies.get(_COOKIE_NAME)
-        except Exception:  # noqa: BLE001
-            val = None
-        if val == token:
-            st.session_state["_authenticated"] = True
-            return True
-        # Il componente cookie consegna il valore in modo asincrono: al primo run
-        # è None anche quando il cookie esiste. Diamo UN rerun di grazia mostrando
-        # uno spinner (invece del form che lampeggia), così l'utente vede
-        # "spinner → app" se il cookie c'è, oppure "spinner → login" se non c'è.
-        if not st.session_state.get("_cookie_grace_done"):
-            st.session_state["_cookie_grace_done"] = True
-            st.markdown(
-                "<div style='text-align:center;margin-top:120px;color:#64748b'>"
-                "Caricamento…</div>",
-                unsafe_allow_html=True,
-            )
-            st.stop()
+    # Ripristino dal cookie (lettura sincrona via st.context): funziona a ogni
+    # reload completo, niente flash.
+    if _read_cookie_token() == token:
+        st.session_state["_authenticated"] = True
+        return True
 
     # --- Non autenticato: schermata di login. ---
     st.markdown(
@@ -115,14 +102,15 @@ def require_password() -> bool:
             if ok:
                 if hmac.compare_digest(pwd, expected):
                     st.session_state["_authenticated"] = True
-                    # Salva il cookie così il login sopravvive ai reload
-                    if cookies is not None:
+                    # Scrive il cookie col componente (solo qui, al login)
+                    if _HAS_COOKIES:
                         try:
-                            cookies.set(
+                            CookieController().set(
                                 _COOKIE_NAME,
                                 token,
-                                expires_at=_dt.datetime.now() + _dt.timedelta(days=_COOKIE_DAYS),
+                                max_age=_COOKIE_MAX_AGE_DAYS * 24 * 3600,
                             )
+                            time.sleep(0.4)  # tempo al componente per scrivere
                         except Exception:  # noqa: BLE001
                             pass
                     st.rerun()
