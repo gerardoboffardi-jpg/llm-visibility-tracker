@@ -83,6 +83,23 @@ def require_password() -> bool:
         st.session_state["_authenticated"] = True
         return True
 
+    # --- DEBUG temporaneo: diagnostica stato cookie (rimuovere dopo) ---
+    with st.expander("🔧 debug cookie (temporaneo)", expanded=True):
+        _dbg = {"_HAS_COOKIES": _HAS_COOKIES, "token_atteso": token[:12] + "…"}
+        try:
+            _ctx = dict(st.context.cookies)
+            _dbg["st.context ha llmvt_auth"] = _COOKIE_NAME in _ctx
+            _dbg["valore == token"] = _ctx.get(_COOKIE_NAME) == token
+            _dbg["chiavi cookie"] = list(_ctx.keys())
+        except Exception as e:  # noqa: BLE001
+            _dbg["ctx_err"] = str(e)
+        try:
+            _dbg["host"] = st.context.headers.get("Host")
+            _dbg["proto"] = st.context.headers.get("X-Forwarded-Proto")
+        except Exception:  # noqa: BLE001
+            pass
+        st.json(_dbg)
+
     # --- Non autenticato: schermata di login. ---
     st.markdown(
         """
@@ -102,13 +119,18 @@ def require_password() -> bool:
             if ok:
                 if hmac.compare_digest(pwd, expected):
                     st.session_state["_authenticated"] = True
-                    # Scrive il cookie col componente (solo qui, al login)
+                    # Scrive il cookie col componente (solo qui, al login).
+                    # secure=True + same_site='lax' servono in contesto HTTPS
+                    # (Streamlit Cloud). localhost è considerato secure context
+                    # dai browser moderni, quindi funziona anche lì.
                     if _HAS_COOKIES:
                         try:
                             CookieController().set(
                                 _COOKIE_NAME,
                                 token,
                                 max_age=_COOKIE_MAX_AGE_DAYS * 24 * 3600,
+                                secure=True,
+                                same_site="lax",
                             )
                             time.sleep(0.4)  # tempo al componente per scrivere
                         except Exception:  # noqa: BLE001
