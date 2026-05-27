@@ -1,9 +1,17 @@
+# LLM Visibility — config modelli con pricing per cost tracking.
+# I prezzi sono in USD per 1M token (pubblicati dai provider al 2025).
+# web_search_price è il costo extra per ricerca web, dove applicabile.
+# Se mancano, il calcolo costo userà 0 (sarà comunque consistente, solo sottostimato).
+
 - id: perplexity-sonar
   provider: perplexity
   model: sonar
   web_search: true
   priority: high
   enabled: true
+  input_price_per_1m: 1.00     # USD/1M token input
+  output_price_per_1m: 1.00    # USD/1M token output
+  web_search_price: 0.005      # USD per query
 
 - id: perplexity-sonar-pro
   provider: perplexity
@@ -11,6 +19,9 @@
   web_search: true
   priority: high
   enabled: true
+  input_price_per_1m: 3.00
+  output_price_per_1m: 15.00
+  web_search_price: 0.005
 
 - id: gpt-4o-search
   provider: openai
@@ -18,6 +29,9 @@
   web_search: true
   priority: high
   enabled: true
+  input_price_per_1m: 2.50
+  output_price_per_1m: 10.00
+  web_search_price: 0.030      # ~$30/1k query secondo OpenAI
 
 - id: gpt-4o-mini-search
   provider: openai
@@ -25,6 +39,9 @@
   web_search: true
   priority: medium
   enabled: false
+  input_price_per_1m: 0.15
+  output_price_per_1m: 0.60
+  web_search_price: 0.025
 
 - id: claude-sonnet-search
   provider: anthropic
@@ -32,6 +49,9 @@
   web_search: true
   priority: high
   enabled: true
+  input_price_per_1m: 3.00
+  output_price_per_1m: 15.00
+  web_search_price: 0.010      # $10/1k ricerche web Anthropic
 
 - id: gemini-2-flash-search
   provider: gemini
@@ -39,3 +59,43 @@
   web_search: true
   priority: high
   enabled: true
+  input_price_per_1m: 0.10
+  output_price_per_1m: 0.40
+  web_search_price: 0.000      # incluso fino a soglie generose
+
+# ---------------------------------------------------------------------
+# Modelli chat BASE (senza web search) — misurano la "brand awareness"
+# del modello senza accesso al web. Utile per confronto: il modello
+# ricorda il brand dai dati di training? Citation rate sarà 0 perché non
+# può citare URL, ma il mention rate è il dato interessante.
+# ---------------------------------------------------------------------
+
+- id: gpt-4o-chat
+  provider: openai
+  model: gpt-4o
+  web_search: false
+  priority: medium
+  enabled: true
+  input_price_per_1m: 2.50
+  output_price_per_1m: 10.00
+  web_search_price: 0.000
+
+- id: claude-sonnet-chat
+  provider: anthropic
+  model: claude-sonnet-4-5
+  web_search: false
+  priority: medium
+  enabled: true
+  input_price_per_1m: 3.00
+  output_price_per_1m: 15.00
+  web_search_price: 0.000
+
+- id: gemini-2-flash-chat
+  provider: gemini
+  model: gemini-2.0-flash
+  web_search: false
+  priority: medium
+  enabled: true
+  input_price_per_1m: 0.10
+  output_price_per_1m: 0.40
+  web_search_price: 0.000

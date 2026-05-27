@@ -10,6 +10,7 @@ import streamlit as st
 from sqlalchemy import Integer, func, select
 
 from dashboard.auth import require_password
+from dashboard.style import CORAL, apply_style, page_header, render_sidebar, section_header
 from dashboard.utils import (
     domain_aggregates,
     fmt_pct,
@@ -19,16 +20,32 @@ from dashboard.utils import (
 from src.storage import Response, get_session
 
 st.set_page_config(page_title="Overview", page_icon="📊", layout="wide")
+apply_style()
 if not require_password():
     st.stop()
 
-st.title("📊 Overview")
-st.caption("Vista aggregata su tutti i prompt monitorati.")
-
 kpis = global_kpis()
+from dashboard.utils import cost_aggregates
+_cost = cost_aggregates()
+render_sidebar(
+    current_kpi_label=f"{kpis['n_responses']} risposte · {kpis['n_prompts']} prompt",
+    current_kpi_value=fmt_pct(kpis['citation_rate']),
+    cost_usd=_cost["cost_total_usd"],
+    n_runs=kpis["n_runs"],
+)
+
+page_header(
+    icon="📊",
+    title="Overview",
+    sub="Vista aggregata sulla visibility di talentgarden.com nelle risposte LLM.",
+)
 
 if kpis["n_responses"] == 0:
-    st.info("Nessuna risposta raccolta ancora. Esegui `python -m scripts.run_batch --repeat 1` per iniziare.", icon="ℹ️")
+    st.info(
+        "Nessuna risposta raccolta ancora. Esegui "
+        "`python -m scripts.run_batch --repeat 1` per iniziare.",
+        icon="ℹ️",
+    )
     st.stop()
 
 c1, c2, c3, c4 = st.columns(4)
@@ -37,17 +54,23 @@ c2.metric("💬 Mention rate", fmt_pct(kpis["mention_rate"]))
 c3.metric("📊 Share of citations", fmt_pct(kpis["share_of_citations"]))
 c4.metric("⚠️ Citation gap", fmt_pct(kpis["citation_gap"]))
 
-st.divider()
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
 # ---------------- Top + Gap ----------------
 df = prompts_overview_df()
 df_with_data = df[df["n_risposte"] > 0].copy()
 
+section_header(
+    eyebrow="Performance per prompt",
+    title="Dove vinciamo e dove perdiamo",
+    sub="Top prompt per citation rate e prompt con il gap maggiore tra menzione e citazione.",
+)
+
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("🏆 Top 10 prompt per citation rate")
-    st.caption("I prompt dove talentgarden.com viene citato più spesso.")
+    st.markdown("##### 🏆 Top 10 per citation rate")
+    st.caption("Prompt dove talentgarden.com viene citato più spesso.")
     top = df_with_data.sort_values("citation_rate", ascending=False).head(10)
     if top.empty:
         st.info("Nessuna run ancora disponibile.")
@@ -68,8 +91,8 @@ with col1:
         )
 
 with col2:
-    st.subheader("⚠️ Top citation gap")
-    st.caption("Prompt dove il brand è menzionato ma il sito **non** è citato → opportunità SEO.")
+    st.markdown("##### ⚠️ Top citation gap")
+    st.caption("Menzionato ma NON citato → opportunità SEO.")
     gap = df_with_data.copy()
     gap["gap"] = (gap["mention_rate"].fillna(0) - gap["citation_rate"].fillna(0)).clip(lower=0)
     gap = gap[gap["gap"] > 0].sort_values("gap", ascending=False).head(10)
@@ -93,42 +116,64 @@ with col2:
             hide_index=True, use_container_width=True, height=420,
         )
 
-st.divider()
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
 # ---------------- Domain mix ----------------
-st.subheader("🌐 Domain mix delle citazioni")
+section_header(
+    eyebrow="Citazioni",
+    title="Domain mix",
+    sub="Quanto pesano target, competitor e fonti neutre sul totale delle citazioni LLM.",
+)
 dom = domain_aggregates()
 if dom.empty:
     st.info("Nessuna citazione raccolta.")
 else:
     summary = dom.groupby("category")["n_citations"].sum().reset_index()
-    # Ordine fisso e colori semaforici
     order = ["target", "competitor", "other"]
     summary["category"] = pd.Categorical(summary["category"], categories=order, ordered=True)
     summary = summary.sort_values("category")
 
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.dataframe(
-            summary.rename(columns={"category": "Categoria", "n_citations": "Citazioni"}),
-            hide_index=True, use_container_width=True,
-        )
         total = summary["n_citations"].sum()
         for _, row in summary.iterrows():
             pct = (row["n_citations"] / total) if total else 0
-            label = {"target": "🟢 TARGET", "competitor": "🟠 Competitor", "other": "⚪ Altri"}[row["category"]]
-            st.markdown(f"{label}: **{fmt_pct(pct)}**")
+            label_map = {
+                "target": ("🟢 TARGET", "#16A34A"),
+                "competitor": ("🟠 Competitor", "#F97316"),
+                "other": ("⚪ Altri", "#64748B"),
+            }
+            label, color = label_map[row["category"]]
+            st.markdown(
+                f"""
+                <div class="tag-card" style="margin-bottom:10px">
+                    <div style="color:#64748B;font-size:0.78rem;text-transform:uppercase;
+                                letter-spacing:0.06em;font-weight:600">{label}</div>
+                    <div style="font-size:1.8rem;font-weight:700;color:{color};line-height:1">
+                        {fmt_pct(pct)}
+                    </div>
+                    <div style="color:#64748B;font-size:0.85rem;margin-top:2px">
+                        {row['n_citations']} citazioni
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     with c2:
         st.bar_chart(
             summary.set_index("category")["n_citations"],
-            color="#E94E1B",
-            height=300,
+            color=CORAL,
+            height=340,
         )
 
-st.divider()
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
 # ---------------- Trend ----------------
-st.subheader("📈 Trend citation rate nel tempo")
+section_header(
+    eyebrow="Andamento",
+    title="Trend citation rate",
+    sub="Evoluzione del citation rate giorno per giorno.",
+)
 with get_session() as s:
     stmt = (
         select(
@@ -147,4 +192,4 @@ if trend.empty or len(trend) < 2:
     st.info("Servono almeno 2 giorni di dati per vedere il trend.")
 else:
     trend["citation_rate"] = trend["n_cit"] / trend["n_resp"]
-    st.line_chart(trend.set_index("day")["citation_rate"], color="#E94E1B", height=280)
+    st.line_chart(trend.set_index("day")["citation_rate"], color=CORAL, height=300)

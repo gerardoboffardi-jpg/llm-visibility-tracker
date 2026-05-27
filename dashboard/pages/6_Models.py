@@ -8,14 +8,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import streamlit as st
 
 from dashboard.auth import require_password
+from dashboard.style import apply_style, model_avatar, model_meta, page_header, render_sidebar
 from dashboard.utils import model_aggregates
 
 st.set_page_config(page_title="Models", page_icon="🤖", layout="wide")
+apply_style()
 if not require_password():
     st.stop()
 
-st.title("🤖 Models")
-st.caption("Confronto delle performance dei modelli LLM monitorati.")
+render_sidebar()
+
+page_header(
+    icon="🤖",
+    title="Models",
+    sub="Confronto delle performance dei modelli LLM monitorati.",
+)
 
 df = model_aggregates()
 if df.empty:

@@ -17,28 +17,32 @@ from src.providers.base import Citation, LLMProvider, LLMResponse, ProviderError
 class AnthropicSearchProvider(LLMProvider):
     provider_name = "anthropic"
 
-    def __init__(self, model_id: str, model: str, max_uses: int = 5, **kwargs):
+    def __init__(self, model_id: str, model: str, max_uses: int = 5,
+                 enable_web_search: bool = True, **kwargs):
         super().__init__(model_id, model, **kwargs)
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ProviderError("ANTHROPIC_API_KEY non configurata")
         self.client = anthropic.Anthropic(api_key=api_key)
         self.max_uses = max_uses
+        self.enable_web_search = enable_web_search
 
     def _do_query(self, prompt: str) -> LLMResponse:
         start = time.time()
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}],
-            tools=[
+        kwargs: dict = {
+            "model": self.model,
+            "max_tokens": 2048,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if self.enable_web_search:
+            kwargs["tools"] = [
                 {
                     "type": "web_search_20250305",
                     "name": "web_search",
                     "max_uses": self.max_uses,
                 }
-            ],
-        )
+            ]
+        message = self.client.messages.create(**kwargs)
         latency_ms = int((time.time() - start) * 1000)
 
         # Concatena tutto il testo dai blocchi `text` e raccoglie le citation

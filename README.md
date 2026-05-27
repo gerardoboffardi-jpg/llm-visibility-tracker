@@ -65,14 +65,29 @@ llm-visibility-tracker/
 
 ## Dashboard
 
-5 pagine:
+Stile ispirato a [HubSpot AEO](https://www.hubspot.com/products/aeo): palette TAG coral + Poppins, card moderne, risposte LLM in formato **chat con bubble** (prompt + risposta + avatar engine).
 
-1. **Home** — KPI globali (citation rate, mention rate, share of citations, citation gap)
-2. **Overview** — top 10 prompt per citation rate, top 10 citation gap, domain mix, trend
-3. **Prompts** — tabella con citation rate evidenziato + filtri + form "➕ Aggiungi prompt" con dedup fuzzy e checkbox "esegui subito"
-4. **Prompt Detail** — risposte per modello con brand evidenziati e citazioni colorate; bottoni Rilancia / Modifica / Disattiva / Duplica
-5. **Citations** — esplora URL aggregate (target, competitor, neutri ricorrenti)
-6. **Models** — confronto performance modelli
+7 viste:
+
+1. **Home** — hero stile HubSpot con KPI (citation rate, mention rate, share, gap) + preview ultime risposte LLM in chat-style
+2. **📊 Overview** — top 10 per citation rate, top 10 citation gap, domain mix, trend
+3. **💬 Risposte** — feed cronologico di **tutte** le risposte LLM con filtri (prompt, modello, citazione/menzione/gap), engine summary cards e bubble chat
+4. **📝 Prompts** — tabella prompt + 3 modalità di aggiunta:
+   - **🪄 Genera da URL/Brochure** — incolla un URL o carica un PDF, l'LLM (Claude → fallback OpenAI) estrae il contenuto e propone 20-30 prompt realistici da revisionare e importare
+   - **➕ Aggiungi prompt** singolo con dedup fuzzy
+   - **📤 Import YAML/CSV** in bulk
+5. **🔬 Prompt Detail** — singolo prompt con tutte le risposte in chat-style raggruppate per engine
+6. **🔗 Citations** — URL aggregate (target, competitor, neutri ricorrenti)
+7. **🤖 Models** — confronto performance modelli
+
+### Come usare con il team (no-code)
+
+Una volta deployata su Streamlit Cloud (vedi sotto):
+
+1. Mandi al team il link `https://llm-visibility-tracker-tuoaccount.streamlit.app` + la `APP_PASSWORD` condivisa
+2. Ogni persona accede da browser, inserisce la password una volta
+3. La dashboard è in lettura/scrittura: chiunque può aggiungere prompt dalla pagina **📝 Prompts**, rilanciare un singolo prompt dalla pagina **🔬 Prompt Detail**, esplorare risposte dalla pagina **💬 Risposte**
+4. I batch settimanali girano in automatico via GitHub Actions — nessuno deve toccare la CLI
 
 ## Deploy su Streamlit Community Cloud (gratis, link condivisibile)
 

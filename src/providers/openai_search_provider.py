@@ -16,12 +16,17 @@ from src.providers.base import Citation, LLMProvider, LLMResponse, ProviderError
 class OpenAISearchProvider(LLMProvider):
     provider_name = "openai"
 
-    def __init__(self, model_id: str, model: str, **kwargs):
+    def __init__(self, model_id: str, model: str,
+                 enable_web_search: bool = True, **kwargs):
+        # enable_web_search è informativo: per OpenAI il search è implicito nel
+        # nome modello (*-search-preview). Per modelli chat normali (gpt-4o)
+        # questo provider funziona comunque ritornando solo testo, niente citazioni.
         super().__init__(model_id, model, **kwargs)
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ProviderError("OPENAI_API_KEY non configurata")
         self.client = OpenAI(api_key=api_key)
+        self.enable_web_search = enable_web_search
 
     def _do_query(self, prompt: str) -> LLMResponse:
         start = time.time()

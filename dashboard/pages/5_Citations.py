@@ -10,16 +10,22 @@ import streamlit as st
 from sqlalchemy import func, select
 
 from dashboard.auth import require_password
+from dashboard.style import apply_style, page_header, render_sidebar
 from dashboard.utils import domain_aggregates
 from src.storage import Citation, Response, get_session
 
 st.set_page_config(page_title="Citations", page_icon="🔗", layout="wide")
+apply_style()
 if not require_password():
     st.stop()
 
-st.title("🔗 Citations Explorer")
+render_sidebar()
 
-st.caption("Esplora tutte le URL citate dagli LLM. Le citazioni sono cittadini di prima classe in questa dashboard.")
+page_header(
+    icon="🔗",
+    title="Citations Explorer",
+    sub="Esplora tutte le URL citate dagli LLM. Citazioni come cittadini di prima classe.",
+)
 
 dom = domain_aggregates()
 if dom.empty:
