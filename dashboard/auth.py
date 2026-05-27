@@ -69,15 +69,19 @@ def require_password() -> bool:
     if st.session_state.get("_authenticated"):
         return True
 
-    # Prova a ripristinare l'auth dal cookie (sopravvive ai reload)
+    # Ripristina l'auth dal cookie LEGGENDOLO in modo sincrono via st.context.
+    # Nativo Streamlit (>=1.37), nessun componente → nessun doppio caricamento.
+    try:
+        if st.context.cookies.get(_COOKIE_NAME) == token:
+            st.session_state["_authenticated"] = True
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+
+    # --- Non autenticato: schermata di login. ---
+    # Il componente cookie viene istanziato SOLO qui (serve per SCRIVERE il
+    # cookie al login), così le pagine autenticate non lo toccano mai.
     cookies = _cookie_manager() if _HAS_COOKIES else None
-    if cookies is not None:
-        try:
-            if cookies.get(_COOKIE_NAME) == token:
-                st.session_state["_authenticated"] = True
-                return True
-        except Exception:  # noqa: BLE001
-            pass
 
     st.markdown(
         """
