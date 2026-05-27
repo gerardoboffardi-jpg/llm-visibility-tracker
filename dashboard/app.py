@@ -73,7 +73,7 @@ st.markdown(
     <div class="tag-hero">
         <span class="tag-eyebrow">LLM Visibility · Talent Garden</span>
         <h1 class="tag-h1">
-            Quanto è visibile il tuo brand<br/>nelle risposte degli <span class="accent">LLM</span>?
+            Quanto è visibile Talent Garden<br/>nelle risposte degli <span class="accent">LLM</span>?
         </h1>
         <p class="tag-sub">
             Monitora come ChatGPT, Perplexity, Claude e Gemini citano

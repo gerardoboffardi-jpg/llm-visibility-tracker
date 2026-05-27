@@ -388,23 +388,10 @@ if only_gap:
 
 st.caption(f"{len(df)} prompt mostrati")
 
-# ----------------- Selezione + eliminazione -----------------
-sel_all = st.checkbox(
-    "Seleziona tutti",
-    key="prompts_select_all",
-    help="Spunta per pre-selezionare tutti i prompt mostrati; poi puoi deselezionarne alcuni.",
-)
-
-# Colonna di selezione in testa (default = stato di 'Seleziona tutti').
-# La key dell'editor include sel_all: cambiandolo l'editor si ri-inizializza
-# con tutte le righe (de)selezionate.
-df_sel = df.copy()
-df_sel.insert(0, "🗑 sel", sel_all)
-
-edited = st.data_editor(
-    df_sel,
+# Tabella in sola lettura (consultazione)
+st.dataframe(
+    df,
     column_config={
-        "🗑 sel": st.column_config.CheckboxColumn("🗑", width="small", help="Seleziona per eliminare"),
         "id": st.column_config.NumberColumn("ID", width="small"),
         "prompt": st.column_config.TextColumn("Prompt", width="large"),
         "categoria": "Categoria",
@@ -422,41 +409,113 @@ edited = st.data_editor(
         ),
         "ultima_run": st.column_config.DatetimeColumn("Ultima run", format="YYYY-MM-DD HH:mm"),
     },
-    disabled=[c for c in df_sel.columns if c != "🗑 sel"],  # solo la selezione è editabile
     hide_index=True,
     use_container_width=True,
     height=500,
-    key=f"prompts_editor_{sel_all}",
 )
 
-selected_ids = [int(i) for i in edited.loc[edited["🗑 sel"], "id"].tolist()] if not edited.empty else []
-
-dc1, dc2 = st.columns([1, 3])
-if dc1.button(
-    f"🗑 Elimina {len(selected_ids)} selezionati",
-    type="primary",
-    disabled=len(selected_ids) == 0,
-    use_container_width=True,
-):
-    st.session_state["confirm_delete_ids"] = selected_ids
-
-# Conferma esplicita (azione irreversibile)
-pending = st.session_state.get("confirm_delete_ids")
-if pending:
-    st.warning(
-        f"⚠️ Stai per eliminare **{len(pending)} prompt** e TUTTE le risposte, "
-        "citazioni e menzioni collegate. L'azione è **irreversibile**."
+# ----------------- Rilancia prompt (pannello dedicato) -----------------
+with st.expander("▶️ Rilancia prompt", expanded=False):
+    st.caption(
+        "Seleziona i prompt e le ripetizioni, poi avvia l'esecuzione su tutti i "
+        "modelli abilitati. Il costo è proporzionale a ripetizioni × modelli × prompt."
     )
-    cc1, cc2, _ = st.columns([1, 1, 3])
-    if cc1.button("Sì, elimina definitivamente", type="primary", use_container_width=True):
-        n = ps.delete_prompts(pending)
-        st.session_state.pop("confirm_delete_ids", None)
-        st.session_state["prompts_select_all"] = False
-        st.success(f"✅ {n} prompt eliminati.")
+
+    _r_id_to_label = {int(r.id): f"#{int(r.id)} · {str(r.prompt)[:70]}" for r in df.itertuples()}
+    _r_all = list(_r_id_to_label.values())
+    _r_lab2id = {v: k for k, v in _r_id_to_label.items()}
+
+    rsa1, rsa2, _ = st.columns([1, 1, 3])
+    if rsa1.button("Seleziona tutti", key="run_sel_all_btn", use_container_width=True):
+        st.session_state["run_selection"] = _r_all
         st.rerun()
-    if cc2.button("Annulla", use_container_width=True):
-        st.session_state.pop("confirm_delete_ids", None)
+    if rsa2.button("Deseleziona", key="run_desel_btn", use_container_width=True):
+        st.session_state["run_selection"] = []
         st.rerun()
+
+    run_labels = st.multiselect(
+        "Prompt da rilanciare",
+        options=_r_all,
+        key="run_selection",
+        placeholder="Scegli i prompt…",
+    )
+    run_ids = [_r_lab2id[l] for l in run_labels if l in _r_lab2id]
+
+    repeat = st.number_input(
+        "Ripetizioni per prompt",
+        min_value=1, max_value=10, value=1, step=1,
+        help="Più ripetizioni = più dati sulla consistenza del modello.",
+    )
+
+    if st.button(
+        f"▶️ Esegui {len(run_ids)} prompt × {repeat}",
+        type="primary",
+        disabled=len(run_ids) == 0,
+        use_container_width=True,
+    ):
+        prog = st.progress(0.0, text="Avvio…")
+        ok_total = att_total = 0
+        for i, pid in enumerate(run_ids):
+            with st.spinner(fun_loader(f"Eseguo prompt #{pid} ({i + 1}/{len(run_ids)}) su tutti i modelli…")):
+                try:
+                    s = run_single(pid, repeat=int(repeat))
+                    ok_total += s.n_success
+                    att_total += s.n_attempted
+                except Exception as e:  # noqa: BLE001
+                    st.warning(f"Prompt #{pid} fallito: {e}")
+            prog.progress((i + 1) / len(run_ids), text=f"{i + 1}/{len(run_ids)} prompt")
+        st.success(f"✅ Completato: {ok_total}/{att_total} risposte OK su {len(run_ids)} prompt.")
+        st.rerun()
+
+# ----------------- Eliminazione prompt (pannello dedicato) -----------------
+with st.expander("🗑 Elimina prompt", expanded=False):
+    st.caption("Seleziona uno o più prompt dall'elenco, poi clicca **Elimina selezionati**. Nessuna eliminazione avviene in automatico.")
+
+    id_to_label = {int(r.id): f"#{int(r.id)} · {str(r.prompt)[:70]}" for r in df.itertuples()}
+    all_labels = list(id_to_label.values())
+    label_to_id = {v: k for k, v in id_to_label.items()}
+
+    bsa1, bsa2, _ = st.columns([1, 1, 3])
+    if bsa1.button("Seleziona tutti", use_container_width=True):
+        st.session_state["del_selection"] = all_labels
+        st.rerun()
+    if bsa2.button("Deseleziona", use_container_width=True):
+        st.session_state["del_selection"] = []
+        st.rerun()
+
+    selected_labels = st.multiselect(
+        "Prompt da eliminare",
+        options=all_labels,
+        key="del_selection",
+        placeholder="Scegli i prompt…",
+    )
+    selected_ids = [label_to_id[l] for l in selected_labels if l in label_to_id]
+
+    if st.button(
+        f"🗑 Elimina selezionati ({len(selected_ids)})",
+        type="primary",
+        disabled=len(selected_ids) == 0,
+        use_container_width=True,
+    ):
+        st.session_state["confirm_delete_ids"] = selected_ids
+
+    # Conferma esplicita (azione irreversibile)
+    pending = st.session_state.get("confirm_delete_ids")
+    if pending:
+        st.warning(
+            f"⚠️ Stai per eliminare **{len(pending)} prompt** e TUTTE le risposte, "
+            "citazioni e menzioni collegate. L'azione è **irreversibile**."
+        )
+        cc1, cc2, _ = st.columns([1, 1, 3])
+        if cc1.button("Sì, elimina definitivamente", type="primary", use_container_width=True):
+            n = ps.delete_prompts(pending)
+            st.session_state.pop("confirm_delete_ids", None)
+            st.session_state["del_selection"] = []
+            st.success(f"✅ {n} prompt eliminati.")
+            st.rerun()
+        if cc2.button("Annulla", use_container_width=True):
+            st.session_state.pop("confirm_delete_ids", None)
+            st.rerun()
 
 st.markdown("**Apri un prompt** → vai alla pagina **Prompt Detail** e inserisci l'ID del prompt.")
 st.markdown("Per esecuzione manuale di un prompt usa la pagina **Prompt Detail** o il CLI:")
