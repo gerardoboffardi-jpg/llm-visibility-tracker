@@ -273,6 +273,58 @@ def activate_prompt(prompt_id: int, session: Session | None = None) -> Prompt:
 
 
 # ---------------------------------------------------------------------------
+# Eliminazione
+# ---------------------------------------------------------------------------
+
+
+def delete_prompt(prompt_id: int, session: Session | None = None) -> bool:
+    """Elimina un prompt e TUTTE le risposte collegate (con citazioni/menzioni
+    via cascade ORM). Ritorna True se il prompt esisteva ed è stato eliminato.
+
+    Azione IRREVERSIBILE.
+    """
+    own_session = session is None
+    s = session or get_session()
+    try:
+        prompt = s.get(Prompt, prompt_id)
+        if prompt is None:
+            return False
+        # Elimina prima le risposte (la cascade su Response → citations/mentions
+        # rimuove anche quelle), altrimenti il vincolo FK blocca la delete.
+        responses = list(s.scalars(select(Response).where(Response.prompt_id == prompt_id)))
+        for r in responses:
+            s.delete(r)
+        s.delete(prompt)
+        s.commit()
+        return True
+    finally:
+        if own_session:
+            s.close()
+
+
+def delete_prompts(prompt_ids: Iterable[int], session: Session | None = None) -> int:
+    """Elimina più prompt in un'unica transazione. Ritorna il numero di prompt
+    effettivamente eliminati. Azione IRREVERSIBILE."""
+    own_session = session is None
+    s = session or get_session()
+    deleted = 0
+    try:
+        for pid in prompt_ids:
+            prompt = s.get(Prompt, pid)
+            if prompt is None:
+                continue
+            for r in list(s.scalars(select(Response).where(Response.prompt_id == pid))):
+                s.delete(r)
+            s.delete(prompt)
+            deleted += 1
+        s.commit()
+        return deleted
+    finally:
+        if own_session:
+            s.close()
+
+
+# ---------------------------------------------------------------------------
 # Bulk import
 # ---------------------------------------------------------------------------
 

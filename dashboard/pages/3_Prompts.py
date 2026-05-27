@@ -388,9 +388,23 @@ if only_gap:
 
 st.caption(f"{len(df)} prompt mostrati")
 
-st.dataframe(
-    df,
+# ----------------- Selezione + eliminazione -----------------
+sel_all = st.checkbox(
+    "Seleziona tutti",
+    key="prompts_select_all",
+    help="Spunta per pre-selezionare tutti i prompt mostrati; poi puoi deselezionarne alcuni.",
+)
+
+# Colonna di selezione in testa (default = stato di 'Seleziona tutti').
+# La key dell'editor include sel_all: cambiandolo l'editor si ri-inizializza
+# con tutte le righe (de)selezionate.
+df_sel = df.copy()
+df_sel.insert(0, "🗑 sel", sel_all)
+
+edited = st.data_editor(
+    df_sel,
     column_config={
+        "🗑 sel": st.column_config.CheckboxColumn("🗑", width="small", help="Seleziona per eliminare"),
         "id": st.column_config.NumberColumn("ID", width="small"),
         "prompt": st.column_config.TextColumn("Prompt", width="large"),
         "categoria": "Categoria",
@@ -408,10 +422,41 @@ st.dataframe(
         ),
         "ultima_run": st.column_config.DatetimeColumn("Ultima run", format="YYYY-MM-DD HH:mm"),
     },
+    disabled=[c for c in df_sel.columns if c != "🗑 sel"],  # solo la selezione è editabile
     hide_index=True,
     use_container_width=True,
     height=500,
+    key=f"prompts_editor_{sel_all}",
 )
+
+selected_ids = [int(i) for i in edited.loc[edited["🗑 sel"], "id"].tolist()] if not edited.empty else []
+
+dc1, dc2 = st.columns([1, 3])
+if dc1.button(
+    f"🗑 Elimina {len(selected_ids)} selezionati",
+    type="primary",
+    disabled=len(selected_ids) == 0,
+    use_container_width=True,
+):
+    st.session_state["confirm_delete_ids"] = selected_ids
+
+# Conferma esplicita (azione irreversibile)
+pending = st.session_state.get("confirm_delete_ids")
+if pending:
+    st.warning(
+        f"⚠️ Stai per eliminare **{len(pending)} prompt** e TUTTE le risposte, "
+        "citazioni e menzioni collegate. L'azione è **irreversibile**."
+    )
+    cc1, cc2, _ = st.columns([1, 1, 3])
+    if cc1.button("Sì, elimina definitivamente", type="primary", use_container_width=True):
+        n = ps.delete_prompts(pending)
+        st.session_state.pop("confirm_delete_ids", None)
+        st.session_state["prompts_select_all"] = False
+        st.success(f"✅ {n} prompt eliminati.")
+        st.rerun()
+    if cc2.button("Annulla", use_container_width=True):
+        st.session_state.pop("confirm_delete_ids", None)
+        st.rerun()
 
 st.markdown("**Apri un prompt** → vai alla pagina **Prompt Detail** e inserisci l'ID del prompt.")
 st.markdown("Per esecuzione manuale di un prompt usa la pagina **Prompt Detail** o il CLI:")
