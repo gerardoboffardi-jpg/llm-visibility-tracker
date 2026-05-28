@@ -47,7 +47,7 @@
   .repeat-chip input{width:56px;height:32px;padding:0 8px;border:1.5px solid var(--coral);border-radius:8px;background:#fff;font-size:1rem;font-weight:700;color:var(--coral-dark);text-align:center;outline:none;transition:.12s}
   .repeat-chip input:focus{border-color:var(--coral-dark);box-shadow:0 0 0 3px rgba(244,89,89,.18)}
   table{width:100%;border-collapse:separate;border-spacing:0;font-size:.86rem}
-  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;position:sticky;top:0;background:#fff;z-index:10;box-shadow:inset 0 -1px 0 var(--line),0 8px 10px -8px rgba(15,23,42,.22)}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:11px 10px;position:sticky;top:0;background:#fff;background-clip:padding-box;z-index:10;box-shadow:0 1px 0 var(--line)}
   td{border-bottom:1px solid var(--line)}
   .clickrow{cursor:pointer}.clickrow:hover td{background:var(--coral-soft)}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -649,6 +649,12 @@ window.actionDelete = async ()=>{
 window.actionCreate = async ()=>{
   if(!busyGuard("create")) return; try {
     const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
+    const norm = s => s.toLowerCase().replace(/\s+/g," ").trim();
+    const dup = DATA.prompts.find(p => norm(p.text||"") === norm(text));
+    if(dup){
+      toast(`⚠️ Prompt già inserito (#${dup.id}). Controlla nella lista o apri <a href="#/detail?p=${dup.id}" style="color:inherit;text-decoration:underline;font-weight:700">Prompt Detail</a>.`, "error", 8000);
+      return;
+    }
     if(await callN8n(N8N.create,{action:"create",text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){
       scheduleRefresh(30, "Refresh");
     }
