@@ -193,6 +193,12 @@ def create_prompt(
                     if existing:
                         return existing
                 raise DuplicatePromptError(warning)
+        else:
+            # Anche con force=True evita di violare il vincolo UNIQUE: se esiste
+            # già un prompt con lo stesso testo, restituiscilo (idempotente)
+            existing = s.scalar(select(Prompt).where(Prompt.text == text))
+            if existing is not None:
+                return existing
 
         prompt = Prompt(
             text=text,
