@@ -99,7 +99,8 @@ const SUPABASE_KEY = "sb_publishable_faBNmujDvlzyKB5b6SydgA_kOnEvTU5";
 // Webhook n8n unico: il sito posta {action, ...}; n8n inoltra a GitHub Actions
 // (repository_dispatch), il dispatcher Python esegue l'azione e scrive su Supabase.
 const N8N_URL = "https://talentgarden.app.n8n.cloud/webhook/llmv-visibility";
-const N8N = { run:N8N_URL, runBatch:N8N_URL, create:N8N_URL, remove:N8N_URL, generate:N8N_URL, seoPlan:N8N_URL };
+const N8N_PDF_URL = "https://talentgarden.app.n8n.cloud/webhook/llmv-generate-pdf";
+const N8N = { run:N8N_URL, runBatch:N8N_URL, create:N8N_URL, remove:N8N_URL, generate:N8N_URL, seoPlan:N8N_URL, pdf:N8N_PDF_URL };
 const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
 // Registro modelli (mirror di config/models.yaml) per search/chat + pricing USD per 1M token
 const MODELS = {
@@ -555,10 +556,49 @@ window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_
 window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
   document.getElementById("genResult").textContent="Generazione in corso…";
   if(await callN8n(N8N.generate,{action:"generate",url},"Genera da URL")){ document.getElementById("genResult").textContent="🪄 Richiesta inviata. I prompt generati compaiono tra ~1-2 min: usa ↻ Aggiorna dati."; } else document.getElementById("genResult").textContent=""; };
-window.actionGeneratePdf = async ()=>{ const f=document.getElementById("gen_pdf").files[0]; if(!f)return alert("Seleziona un PDF.");
-  // La generazione da PDF non passa dal bridge web (limite payload). Suggerisce l'alternativa.
-  document.getElementById("genResult").innerHTML='ℹ️ La generazione da <b>PDF</b> non è ancora disponibile via web. Usa la generazione <b>da URL</b>, oppure caricami il PDF e lo elaboro io.';
-  };
+window.actionGeneratePdf = async ()=>{
+  const f = document.getElementById("gen_pdf").files[0];
+  if(!f) return alert("Seleziona un PDF.");
+  const res = document.getElementById("genResult");
+  res.innerHTML = '<span class="muted">📄 Carico il PDF su n8n e genero i prompt con Claude (~30-60s)…</span>';
+  try {
+    const fd = new FormData(); fd.append("file", f);
+    const r = await fetch(N8N.pdf, { method:"POST", body: fd });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j = await r.json();
+    const prompts = (Array.isArray(j) ? (j[0]?.prompts || j) : j.prompts) || [];
+    if(!prompts.length){ res.innerHTML='<span class="muted">⚠️ Nessun prompt generato (PDF potrebbe essere scansionato/senza testo).</span>'; return; }
+    window._pdfPrompts = prompts;
+    res.innerHTML = pdfReviewHtml(prompts);
+  } catch(e){ res.innerHTML = '<span style="color:#B91C1C">Errore: '+esc(e.message)+'</span>'; }
+};
+function pdfReviewHtml(prompts){
+  return `<div style="margin-top:8px"><div style="font-weight:600;margin-bottom:6px">🪄 ${prompts.length} prompt generati — scegli quali importare</div>
+    <div style="max-height:340px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:10px">
+      ${prompts.map((p,i)=>`<label style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem;cursor:pointer">
+        <input type="checkbox" class="pdfp" data-i="${i}" checked style="width:auto;margin-top:3px">
+        <span style="flex:1"><b>${esc(p.text||"")}</b>
+          ${p.category?`<span class="pill pill-slate" style="font-size:.66rem;margin-left:6px">${esc(p.category)}</span>`:""}
+          ${p.geo?`<span class="pill pill-slate" style="font-size:.66rem;margin-left:4px">${esc(p.geo)}</span>`:""}
+          ${p.intent?`<span class="pill pill-slate" style="font-size:.66rem;margin-left:4px">${esc(p.intent)}</span>`:""}</span>
+      </label>`).join("")}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" onclick="document.querySelectorAll('.pdfp').forEach(c=>c.checked=true)">Seleziona tutti</button>
+      <button class="btn" onclick="document.querySelectorAll('.pdfp').forEach(c=>c.checked=false)">Deseleziona</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary" onclick="actionImportPdfPrompts()">📥 Importa selezionati</button>
+    </div>
+  </div>`;
+}
+window.actionImportPdfPrompts = async ()=>{
+  const sel = [...document.querySelectorAll('.pdfp:checked')].map(c=>window._pdfPrompts[+c.dataset.i]);
+  if(!sel.length) return alert("Seleziona almeno un prompt.");
+  const res = document.getElementById("genResult");
+  if(await callN8n(N8N.runBatch,{action:"bulk-create", prompts:sel}, "Importa PDF")) {
+    res.innerHTML = '<span style="color:#047857">✅ Importazione richiesta per '+sel.length+' prompt. Tra ~1 min usa ↻ Aggiorna dati.</span>';
+  }
+};
 
 // ============ ROUTER ============
 function route(){

@@ -73,6 +73,20 @@ def main() -> None:
             except ps.DuplicatePromptError:
                 pass
         print(f"  generati {len(res.prompts)} prompt da {url}, aggiunti {added} (modello {res.model_used})")
+    elif action == "bulk-create":
+        items = payload.get("prompts") or []
+        added = 0
+        for it in items:
+            txt = (it.get("text") or "").strip()
+            if not txt:
+                continue
+            try:
+                ps.create_prompt(text=txt, category=it.get("category"), geo=it.get("geo"),
+                                 intent=it.get("intent"), created_by="pdf-generate")
+                added += 1
+            except ps.DuplicatePromptError:
+                pass
+        print(f"  bulk-create: {added}/{len(items)} aggiunti")
     elif action == "seo-plan":
         _generate_seo_plan(payload)
     else:
