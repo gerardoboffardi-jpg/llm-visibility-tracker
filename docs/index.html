@@ -42,8 +42,12 @@
   .btn-primary{background:var(--coral);color:#fff;border-color:var(--coral)}
   .btn-primary:hover{background:var(--coral-dark);color:#fff}
   .btn:disabled{opacity:.45;cursor:not-allowed}
+  .repeat-chip{display:inline-flex;align-items:center;gap:10px;padding:6px 8px 6px 14px;border-radius:10px;background:var(--coral-soft);border:1.5px solid var(--coral-border);box-shadow:0 1px 2px rgba(244,89,89,.08)}
+  .repeat-chip .repeat-label{font-size:.82rem;font-weight:700;color:var(--coral-dark);letter-spacing:.01em;white-space:nowrap}
+  .repeat-chip input{width:56px;height:32px;padding:0 8px;border:1.5px solid var(--coral);border-radius:8px;background:#fff;font-size:1rem;font-weight:700;color:var(--coral-dark);text-align:center;outline:none;transition:.12s}
+  .repeat-chip input:focus{border-color:var(--coral-dark);box-shadow:0 0 0 3px rgba(244,89,89,.18)}
   table{width:100%;border-collapse:separate;border-spacing:0;font-size:.86rem}
-  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:10;box-shadow:0 4px 6px -3px rgba(15,23,42,.08)}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;position:sticky;top:0;background:#fff;z-index:10;box-shadow:inset 0 -1px 0 var(--line),0 8px 10px -8px rgba(15,23,42,.22)}
   td{border-bottom:1px solid var(--line)}
   .clickrow{cursor:pointer}.clickrow:hover td{background:var(--coral-soft)}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -325,7 +329,7 @@ function promptsList(rows){
     <button class="btn" onclick="toggleAll(true)">Seleziona tutti</button>
     <button class="btn" onclick="toggleAll(false)">Deseleziona</button>
     <span style="flex:1"></span>
-    <label class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:6px">Ripetizioni <input id="repeatN" type="number" value="1" min="1" max="10" style="width:64px"></label>
+    <label class="repeat-chip" title="Numero di ripetizioni per ciascun prompt selezionato"><span class="repeat-label">🔁 Ripetizioni</span><input id="repeatN" type="number" value="1" min="1" max="10"></label>
     <button class="btn btn-primary" onclick="actionRun()">▶️ Rilancia selezionati</button>
     <button class="btn" style="color:#B91C1C" onclick="actionDelete()">🗑 Elimina selezionati</button>
   </div>
