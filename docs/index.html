@@ -42,8 +42,9 @@
   .btn-primary{background:var(--coral);color:#fff;border-color:var(--coral)}
   .btn-primary:hover{background:var(--coral-dark);color:#fff}
   .btn:disabled{opacity:.45;cursor:not-allowed}
-  table{width:100%;border-collapse:collapse;font-size:.86rem}
-  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5;box-shadow:0 1px 0 var(--line)}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:.86rem}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:10;box-shadow:0 4px 6px -3px rgba(15,23,42,.08)}
+  td{border-bottom:1px solid var(--line)}
   .clickrow{cursor:pointer}.clickrow:hover td{background:var(--coral-soft)}
   td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
   tr:hover td{background:#FBFCFE}
@@ -65,8 +66,10 @@
   .hscroll{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 12px;scroll-behavior:smooth}
   .hscroll::-webkit-scrollbar{height:8px}.hscroll::-webkit-scrollbar-thumb{background:var(--coral-border);border-radius:99px}
   .hcard{flex:0 0 100%;min-width:100%;max-width:100%;scroll-snap-align:start}
-  .sbtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:1rem;line-height:1;color:var(--ink)}
-  .sbtn:hover{background:var(--coral-soft);border-color:var(--coral-border)}
+  .sbtn{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--coral);background:#fff;cursor:pointer;font-size:1.25rem;line-height:1;color:var(--coral);font-weight:700;box-shadow:0 2px 6px rgba(255,95,0,.15);transition:.12s}
+  .sbtn:hover{background:var(--coral);color:#fff;transform:scale(1.06)}
+  .slider-hint{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--coral-dark);background:var(--coral-soft);padding:5px 12px;border-radius:99px;border:1px solid var(--coral-border)}
+  .tag-hit{background:#DCFCE7;color:#15803D;font-weight:600;padding:0 4px;border-radius:4px}
   .hidden{display:none}
 </style>
 </head>
@@ -135,7 +138,14 @@ const NAV = [
 const pct = x => (x==null? "—" : (x*100).toFixed(0)+"%");
 const pct1 = x => (x==null? "—" : (x*100).toFixed(1)+"%");
 const esc = s => (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fmtDate = s => s? new Date(s).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+const fmtDate = s => {
+  if(!s) return "—";
+  // Le colonne created_at sono TIMESTAMP senza TZ (Python scrive datetime.utcnow):
+  // Postgres/PostgREST ritornano ISO senza 'Z' → JS le interpreterebbe come locali.
+  // Forziamo 'Z' (UTC) e poi formattiamo in fuso Europe/Rome.
+  const iso = (typeof s === 'string' && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) ? s + 'Z' : s;
+  return new Date(iso).toLocaleString("it-IT",{timeZone:"Europe/Rome",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+};
 function bar(v){ return `<div class="bar"><span style="width:${Math.round((v||0)*100)}%"></span></div>`; }
 function modelLogo(id){ id=id||""; let d="openai.com";
   if(id.includes("perplexity"))d="perplexity.ai"; else if(id.includes("claude"))d="anthropic.com";
@@ -150,7 +160,12 @@ const PROVIDER_STYLE={
   perplexity:"background:#CFF3F1;color:#0E7490",  // teal (Perplexity)
 };
 function modelChip(id){ return `<span class="pill" style="${PROVIDER_STYLE[providerKey(id)]}"><img class="mlogo" src="${modelLogo(id)}" alt="">${esc(modelLabel(id))}</span>`; }
-function mdText(t){ try{ return DOMPurify.sanitize(marked.parse(t||"")); }catch(e){ return esc(t||""); } }
+const _HIT_RE = /(Talent\s+Garden|talentgarden\.com|talentgarden)/gi;
+function highlightBrand(html){
+  // Sostituisce solo nei text node (tra > e <), evita di toccare attributi/tag
+  return html.replace(/>([^<]+)</g, (_, txt) => '>' + txt.replace(_HIT_RE, '<span class="tag-hit">$1</span>') + '<');
+}
+function mdText(t){ try{ return highlightBrand(DOMPurify.sanitize(marked.parse(t||""))); }catch(e){ return esc(t||""); } }
 
 // Anti doppio-click + countdown auto-refresh
 const _busy = new Set();
@@ -180,7 +195,7 @@ async function loadAll(force){
   ]);
   if(p.error||r.error){ document.getElementById("loading").innerHTML = `<div class="card" style="border-color:#FCA5A5"><b>Errore caricamento dati</b><br><span class="muted">${esc((p.error||r.error).message)}</span></div>`; return; }
   DATA.prompts = p.data||[]; DATA.responses = r.data||[]; DATA.competitors = c.data||[];
-  document.getElementById("lastLoad").textContent = "Aggiornato: "+new Date().toLocaleTimeString("it-IT");
+  document.getElementById("lastLoad").textContent = "Aggiornato: "+new Date().toLocaleTimeString("it-IT",{timeZone:"Europe/Rome"});
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("content").classList.remove("hidden");
   route();
@@ -256,7 +271,7 @@ function tabOverview(){
    <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:34px 40px;margin-bottom:22px">
      <div class="eyebrow" style="margin-bottom:10px">LLM Visibility · Talent Garden</div>
      <h1 style="font-size:clamp(2.1rem,3.4vw,3.1rem);font-weight:800;margin:0 0 10px;line-height:1.08">Quanto è visibile Talent Garden nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
-     <p class="muted" style="font-size:1.02rem;line-height:1.5;max-width:720px">Monitoriamo se <b>ChatGPT, Perplexity, Claude e Gemini</b> citano <b>talentgarden.com</b> quando rispondono a domande reali su coworking, formazione e innovation.</p>
+     <p class="muted" style="font-size:1.05rem;line-height:1.55;margin:0">Monitoriamo se <b>ChatGPT, Perplexity, Claude e Gemini</b> citano <b>talentgarden.com</b> quando rispondono a domande reali su coworking, formazione e innovation — e dove invece vincono i competitor.</p>
    </div>
    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
      ${kpiCard("⭐ Citation rate", pct1(k.citation_rate), k.n_responses+" risposte · "+k.n_prompts+" prompt", "var(--coral)")}
@@ -420,7 +435,7 @@ window.renderFeed = function(){
         ${modelChip(mid)}
         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
         <span class="muted" style="font-size:.8rem">${list.length} rispost${list.length===1?'a':'e'}</span>
-        ${list.length>1?`<span style="flex:1"></span><span class="muted" style="font-size:.76rem">scorri →</span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
+        ${list.length>1?`<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${list.length} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`:''}
       </div>
       <div class="hscroll">${list.map(respCard).join("")}</div>
     </div>`;
@@ -452,7 +467,7 @@ function tabDetail(){
          ${modelChip(mid)}
          <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
          <span class="muted" style="font-size:.82rem">${list.length} ripetizion${list.length===1?'e':'i'}</span>
-         ${list.length>1?`<span style="flex:1"></span><span class="muted" style="font-size:.76rem">scorri →</span><button class="sbtn" onclick="scrollSlider(this,-1)">‹</button><button class="sbtn" onclick="scrollSlider(this,1)">›</button>`:''}
+         ${list.length>1?`<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${list.length} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`:''}
        </div>
        <div class="hscroll">${list.map(r=>`<div class="hcard" style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:14px">
          <div class="muted" style="font-size:.74rem;margin-bottom:4px">${fmtDate(r.created_at)} ${r.has_target_citation?'· ⭐ citato':r.has_target_mention?'· 💬 menzionato':''}</div>
