@@ -152,8 +152,25 @@ const PROVIDER_STYLE={
 function modelChip(id){ return `<span class="pill" style="${PROVIDER_STYLE[providerKey(id)]}"><img class="mlogo" src="${modelLogo(id)}" alt="">${esc(modelLabel(id))}</span>`; }
 function mdText(t){ try{ return DOMPurify.sanitize(marked.parse(t||"")); }catch(e){ return esc(t||""); } }
 
+// Anti doppio-click + countdown auto-refresh
+const _busy = new Set();
+function busyGuard(key){ if(_busy.has(key)) return false; _busy.add(key); return true; }
+function busyRelease(key){ _busy.delete(key); }
+let _refTimer=null, _refInt=null;
+function _clearRefresh(){ if(_refTimer){clearTimeout(_refTimer);_refTimer=null;} if(_refInt){clearInterval(_refInt);_refInt=null;} }
+function scheduleRefresh(seconds, msg){
+  _clearRefresh();
+  let s = Math.max(1, seconds|0);
+  const el = document.getElementById("lastLoad");
+  const txt = ()=>`🔄 ${msg||'Aggiornamento'} tra ${s}s`;
+  if(el) el.innerHTML = txt();
+  _refInt = setInterval(()=>{ s--; if(el) el.innerHTML = txt(); if(s<=0){clearInterval(_refInt);_refInt=null;} }, 1000);
+  _refTimer = setTimeout(()=>{ _refTimer=null; loadAll(true); }, seconds*1000);
+}
+
 // ============ DATA LOAD ============
 async function loadAll(force){
+  _clearRefresh();
   document.getElementById("loading").classList.remove("hidden");
   document.getElementById("content").classList.add("hidden");
   const [p, r, c] = await Promise.all([
@@ -542,35 +559,69 @@ async function callN8n(url, body, label){
     return true;
   }catch(e){ alert("Errore chiamando n8n: "+e.message); return false; }
 }
-window.actionRun = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); const rep=+document.getElementById("repeatN").value||1;
-  if(await callN8n(N8N.runBatch,{action:"run-batch",prompt_ids:ids,repeat:rep},"Rilancia")){ alert(`▶️ Avviata esecuzione di ${ids.length} prompt × ${rep}. Le risposte compaiono tra ~1-2 min — usa ↻ Aggiorna dati.`);} };
-window.actionDelete = async ()=>{ const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt."); if(!confirm(`Eliminare ${ids.length} prompt e tutte le risposte collegate? Irreversibile.`))return;
-  if(await callN8n(N8N.remove,{action:"delete",prompt_ids:ids},"Elimina")){ alert("🗑 Eliminazione richiesta. Tra ~1 min usa ↻ Aggiorna dati."); } };
-window.actionCreate = async ()=>{ const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
-  if(await callN8n(N8N.create,{action:"create",text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){ alert("➕ Prompt inviato. Tra ~1 min usa ↻ Aggiorna dati."); } };
-window.actionSeoPlan = async ()=>{ const sel=document.getElementById("gapSel")?.value || ""; const box=document.getElementById("seoPlanBox");
-  if(box) box.innerHTML=`<div class="muted" style="font-size:.84rem">⏳ Generazione piano ${sel?'mirato al gap #'+sel:'globale'} in corso… (~1 min, poi ricarica con ↻)</div>`;
-  await callN8n(N8N.seoPlan,{action:"seo-plan", prompt_id: sel||null},"Genera piano SEO/GEO"); };
+window.actionRun = async ()=>{
+  if(!busyGuard("run")) return; try {
+    const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt.");
+    const rep=+document.getElementById("repeatN").value||1;
+    if(await callN8n(N8N.runBatch,{action:"run-batch",prompt_ids:ids,repeat:rep},"Rilancia")){
+      alert(`▶️ Avviata esecuzione di ${ids.length} prompt × ${rep}. Risposte fra ~1-2 min.`);
+      scheduleRefresh(120, "Refresh");
+    }
+  } finally { busyRelease("run"); } };
+window.actionDelete = async ()=>{
+  if(!busyGuard("del")) return; try {
+    const ids=selectedPrompts(); if(!ids.length)return alert("Seleziona almeno un prompt.");
+    if(!confirm(`Eliminare ${ids.length} prompt e tutte le risposte collegate? Irreversibile.`))return;
+    if(await callN8n(N8N.remove,{action:"delete",prompt_ids:ids},"Elimina")){
+      scheduleRefresh(30, "Refresh");
+    }
+  } finally { busyRelease("del"); } };
+window.actionCreate = async ()=>{
+  if(!busyGuard("create")) return; try {
+    const text=document.getElementById("np_text").value.trim(); if(!text)return alert("Inserisci il testo.");
+    if(await callN8n(N8N.create,{action:"create",text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){
+      scheduleRefresh(30, "Refresh");
+    }
+  } finally { busyRelease("create"); } };
+window.actionSeoPlan = async ()=>{
+  if(!busyGuard("seo")) return; try {
+    const sel=document.getElementById("gapSel")?.value || ""; const box=document.getElementById("seoPlanBox");
+    if(box) box.innerHTML=`<div class="muted" style="font-size:.84rem">⏳ Generazione piano ${sel?'mirato al gap #'+sel:'globale'} in corso (~1 min)…</div>`;
+    if(await callN8n(N8N.seoPlan,{action:"seo-plan", prompt_id: sel||null},"Genera piano SEO/GEO")){
+      scheduleRefresh(75, "Piano pronto tra");
+    }
+  } finally { busyRelease("seo"); } };
 window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_pdf_box.style.display = t==='pdf'?'flex':'none';
   gtab_url.classList.toggle('active',t==='url'); gtab_pdf.classList.toggle('active',t==='pdf'); };
-window.actionGenerate = async ()=>{ const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
-  document.getElementById("genResult").textContent="Generazione in corso…";
-  if(await callN8n(N8N.generate,{action:"generate",url},"Genera da URL")){ document.getElementById("genResult").textContent="🪄 Richiesta inviata. I prompt generati compaiono tra ~1-2 min: usa ↻ Aggiorna dati."; } else document.getElementById("genResult").textContent=""; };
+window.actionGenerate = async ()=>{
+  if(!busyGuard("genurl")) return; try {
+    const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
+    document.getElementById("genResult").textContent="Generazione in corso…";
+    if(await callN8n(N8N.generate,{action:"generate",url},"Genera da URL")){
+      document.getElementById("genResult").textContent="🪄 Richiesta inviata. Prompt generati fra ~1-2 min.";
+      scheduleRefresh(120, "Refresh");
+    } else document.getElementById("genResult").textContent="";
+  } finally { busyRelease("genurl"); } };
 window.actionGeneratePdf = async ()=>{
-  const f = document.getElementById("gen_pdf").files[0];
-  if(!f) return alert("Seleziona un PDF.");
-  const res = document.getElementById("genResult");
-  res.innerHTML = '<span class="muted">📄 Carico il PDF su n8n e genero i prompt con Claude (~30-60s)…</span>';
+  if(!busyGuard("genpdf")) { alert("Generazione PDF già in corso, attendi."); return; }
+  const btn = event?.target; const oldBtn = btn?.textContent;
+  if(btn){ btn.disabled=true; btn.textContent="⏳ Elaboro…"; }
   try {
-    const fd = new FormData(); fd.append("file", f);
-    const r = await fetch(N8N.pdf, { method:"POST", body: fd });
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const j = await r.json();
-    const prompts = (Array.isArray(j) ? (j[0]?.prompts || j) : j.prompts) || [];
-    if(!prompts.length){ res.innerHTML='<span class="muted">⚠️ Nessun prompt generato (PDF potrebbe essere scansionato/senza testo).</span>'; return; }
-    window._pdfPrompts = prompts;
-    res.innerHTML = pdfReviewHtml(prompts);
-  } catch(e){ res.innerHTML = '<span style="color:#B91C1C">Errore: '+esc(e.message)+'</span>'; }
+    const f = document.getElementById("gen_pdf").files[0];
+    if(!f){ alert("Seleziona un PDF."); return; }
+    const res = document.getElementById("genResult");
+    res.innerHTML = '<span class="muted">📄 Carico il PDF su n8n e genero i prompt con Claude (~30-60s)…</span>';
+    try {
+      const fd = new FormData(); fd.append("file", f);
+      const r = await fetch(N8N.pdf, { method:"POST", body: fd });
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const j = await r.json();
+      const prompts = (Array.isArray(j) ? (j[0]?.prompts || j) : j.prompts) || [];
+      if(!prompts.length){ res.innerHTML='<span class="muted">⚠️ Nessun prompt generato (PDF potrebbe essere scansionato/senza testo).</span>'; return; }
+      window._pdfPrompts = prompts;
+      res.innerHTML = pdfReviewHtml(prompts);
+    } catch(e){ res.innerHTML = '<span style="color:#B91C1C">Errore: '+esc(e.message)+'</span>'; }
+  } finally { busyRelease("genpdf"); if(btn){ btn.disabled=false; btn.textContent=oldBtn; } }
 };
 function pdfReviewHtml(prompts){
   return `<div style="margin-top:8px"><div style="font-weight:600;margin-bottom:6px">🪄 ${prompts.length} prompt generati — scegli quali importare</div>
@@ -592,13 +643,15 @@ function pdfReviewHtml(prompts){
   </div>`;
 }
 window.actionImportPdfPrompts = async ()=>{
-  const sel = [...document.querySelectorAll('.pdfp:checked')].map(c=>window._pdfPrompts[+c.dataset.i]);
-  if(!sel.length) return alert("Seleziona almeno un prompt.");
-  const res = document.getElementById("genResult");
-  if(await callN8n(N8N.runBatch,{action:"bulk-create", prompts:sel}, "Importa PDF")) {
-    res.innerHTML = '<span style="color:#047857">✅ Importazione richiesta per '+sel.length+' prompt. Tra ~1 min usa ↻ Aggiorna dati.</span>';
-  }
-};
+  if(!busyGuard("pdfimp")) return; try {
+    const sel = [...document.querySelectorAll('.pdfp:checked')].map(c=>window._pdfPrompts[+c.dataset.i]);
+    if(!sel.length) return alert("Seleziona almeno un prompt.");
+    const res = document.getElementById("genResult");
+    if(await callN8n(N8N.runBatch,{action:"bulk-create", prompts:sel}, "Importa PDF")) {
+      res.innerHTML = '<span style="color:#047857">✅ Importazione richiesta per '+sel.length+' prompt. La dashboard si aggiorna fra ~30s.</span>';
+      scheduleRefresh(30, "Refresh");
+    }
+  } finally { busyRelease("pdfimp"); } };
 
 // ============ ROUTER ============
 function route(){
