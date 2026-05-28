@@ -1,8 +1,9 @@
-name: Weekly LLM Visibility Batch
+name: Biweekly LLM Visibility Batch
 
 # Trigger:
 # - Lunedì alle 06:00 UTC (08:00 ora italiana legale, 07:00 ora solare)
-# - Manuale via "Run workflow" dalla UI di GitHub
+#   ma SOLO nelle settimane ISO pari → cadenza biweekly (ridurre costi API)
+# - Manuale via "Run workflow" dalla UI di GitHub (sempre attivo)
 on:
   schedule:
     - cron: '0 6 * * 1'
@@ -14,7 +15,28 @@ on:
         default: '3'
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.parity.outputs.run }}
+    steps:
+      - id: parity
+        run: |
+          WEEK=$(date -u +%V)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Trigger manuale — eseguo (settimana ISO $WEEK)"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ $((10#$WEEK % 2)) -eq 0 ]; then
+            echo "Settimana ISO $WEEK pari — eseguo (cadenza biweekly)"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Settimana ISO $WEEK dispari — skip (cadenza biweekly, prossima run fra 7 giorni)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   run-batch:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
