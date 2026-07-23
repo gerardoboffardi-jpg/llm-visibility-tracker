@@ -128,13 +128,13 @@ const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
 const MODELS = {
   "perplexity-sonar": {label: "Perplexity Sonar", type: "search", in: 1.0, out: 1.0, web: 0.005},
   "perplexity-sonar-pro": {label: "Perplexity Sonar Pro", type: "search", in: 3.0, out: 15.0, web: 0.005},
-  "gpt-4o-search": {label: "GPT-4o Search", type: "search", in: 2.5, out: 10.0, web: 0.03},
-  "gpt-4o-mini-search": {label: "GPT-4o mini Search", type: "search", in: 0.15, out: 0.6, web: 0.025},
-  "claude-sonnet-search": {label: "Claude Sonnet Search", type: "search", in: 3.0, out: 15.0, web: 0.01},
-  "gemini-2-flash-search": {label: "Gemini 2.5 Flash Search", type: "search", in: 0.1, out: 0.4, web: 0.0},
-  "gpt-4o-chat": {label: "GPT-4o Chat", type: "chat", in: 2.5, out: 10.0, web: 0.0},
-  "claude-sonnet-chat": {label: "Claude Sonnet Chat", type: "chat", in: 3.0, out: 15.0, web: 0.0},
-  "gemini-2-flash-chat": {label: "Gemini 2.5 Flash Chat", type: "chat", in: 0.1, out: 0.4, web: 0.0},
+  "gpt-4o-search": {label: "GPT-5.6 Terra Search", type: "search", in: 2.5, out: 15.0, web: 0.01},
+  "gpt-4o-mini-search": {label: "GPT-5.6 Luna Search", type: "search", in: 1.0, out: 6.0, web: 0.01},
+  "claude-sonnet-search": {label: "Claude Sonnet 5 Search", type: "search", in: 3.0, out: 15.0, web: 0.01},
+  "gemini-2-flash-search": {label: "Gemini 3.6 Flash Search", type: "search", in: 0.1, out: 0.4, web: 0.0},
+  "gpt-4o-chat": {label: "GPT-5.6 Terra Chat", type: "chat", in: 2.5, out: 15.0, web: 0.0},
+  "claude-sonnet-chat": {label: "Claude Sonnet 5 Chat", type: "chat", in: 3.0, out: 15.0, web: 0.0},
+  "gemini-2-flash-chat": {label: "Gemini 3.6 Flash Chat", type: "chat", in: 0.1, out: 0.4, web: 0.0},
 };
 /* MODELS:GEN:END */
 const modelType = id => (MODELS[id]?.type) || "search";

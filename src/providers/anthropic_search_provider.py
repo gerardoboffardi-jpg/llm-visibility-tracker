@@ -3,6 +3,11 @@
 Docs: https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/web-search-tool
 Le citazioni arrivano come oggetti `citation` annidati nei content blocks `text`,
 e i risultati di ricerca come blocchi `web_search_tool_result`.
+
+NB: su Claude Sonnet 5 il thinking adattivo è attivo di default; qui lo
+disabilitiamo (`thinking: disabled`) perché al tracker interessa la risposta
+groundata con le citazioni, non il ragionamento — e con thinking on l'output
+utile verrebbe eroso dal budget `max_tokens`.
 """
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ class AnthropicSearchProvider(LLMProvider):
         kwargs: dict = {
             "model": self.model,
             "max_tokens": 2048,
+            "thinking": {"type": "disabled"},
             "messages": [{"role": "user", "content": prompt}],
         }
         if self.enable_web_search:

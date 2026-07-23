@@ -1,6 +1,6 @@
 # LLM Visibility Tracker
 
-Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle risposte degli LLM con **web search attivo**: Perplexity (sonar / sonar-pro), OpenAI (gpt-4o-search-preview), Anthropic (Claude Sonnet 4.5 + tool `web_search_20250305`), Google (Gemini 2.5 Flash + `google_search` grounding).
+Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle risposte degli LLM con **web search attivo**: Perplexity (sonar / sonar-pro), OpenAI (GPT-5.6 Terra + tool `web_search` della Responses API), Anthropic (Claude Sonnet 5 + tool `web_search_20250305`), Google (Gemini 3.6 Flash + `google_search` grounding).
 
 **Metrica chiave**: `citation_rate` = % di risposte in cui il dominio target è citato come fonte.
 

@@ -29,10 +29,11 @@ class PerplexityProvider(LLMProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        # NB: le citazioni sono restituite di default (campo `citations` /
+        # `search_results`); il vecchio flag `return_citations` è deprecato.
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "return_citations": True,
         }
         r = requests.post(PERPLEXITY_URL, headers=headers, json=payload, timeout=60)
         latency_ms = int((time.time() - start) * 1000)
