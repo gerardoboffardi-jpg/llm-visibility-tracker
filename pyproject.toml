@@ -14,9 +14,7 @@ dependencies = [
     "tldextract>=5.1.0",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
-    "pandas>=2.2.0",
     "psycopg[binary]>=3.2.0",
-    "markdown>=3.7",
     "beautifulsoup4>=4.12.0",
     "pypdf>=5.0.0",
 ]

@@ -121,18 +121,22 @@ const N8N_URL = "https://talentgarden.app.n8n.cloud/webhook/llmv-visibility";
 const N8N_PDF_URL = "https://talentgarden.app.n8n.cloud/webhook/llmv-generate-pdf";
 const N8N = { run:N8N_URL, runBatch:N8N_URL, create:N8N_URL, remove:N8N_URL, generate:N8N_URL, seoPlan:N8N_URL, pdf:N8N_PDF_URL };
 const TARGET = { name:"Talent Garden", domain:"talentgarden.com" };
-// Registro modelli (mirror di config/models.yaml) per search/chat + pricing USD per 1M token
+// Registro modelli + pricing USD per 1M token.
+// GENERATO da config/models.yaml — non modificare a mano: rigenerare con
+//   python -m scripts.gen_models
+/* MODELS:GEN:START */
 const MODELS = {
-  "perplexity-sonar":      {label:"Perplexity Sonar",      type:"search", in:1.00, out:1.00,  web:0.005},
-  "perplexity-sonar-pro":  {label:"Perplexity Sonar Pro",  type:"search", in:3.00, out:15.00, web:0.005},
-  "gpt-4o-search":         {label:"GPT-4o Search",         type:"search", in:2.50, out:10.00, web:0.030},
-  "gpt-4o-mini-search":    {label:"GPT-4o mini Search",    type:"search", in:0.15, out:0.60,  web:0.025},
-  "claude-sonnet-search":  {label:"Claude Sonnet Search",  type:"search", in:3.00, out:15.00, web:0.010},
-  "gemini-2-flash-search": {label:"Gemini 2.5 Flash Search",type:"search",in:0.10, out:0.40,  web:0.000},
-  "gpt-4o-chat":           {label:"GPT-4o Chat",           type:"chat",   in:2.50, out:10.00, web:0},
-  "claude-sonnet-chat":    {label:"Claude Sonnet Chat",    type:"chat",   in:3.00, out:15.00, web:0},
-  "gemini-2-flash-chat":   {label:"Gemini 2.5 Flash Chat", type:"chat",   in:0.10, out:0.40,  web:0},
+  "perplexity-sonar": {label: "Perplexity Sonar", type: "search", in: 1.0, out: 1.0, web: 0.005},
+  "perplexity-sonar-pro": {label: "Perplexity Sonar Pro", type: "search", in: 3.0, out: 15.0, web: 0.005},
+  "gpt-4o-search": {label: "GPT-4o Search", type: "search", in: 2.5, out: 10.0, web: 0.03},
+  "gpt-4o-mini-search": {label: "GPT-4o mini Search", type: "search", in: 0.15, out: 0.6, web: 0.025},
+  "claude-sonnet-search": {label: "Claude Sonnet Search", type: "search", in: 3.0, out: 15.0, web: 0.01},
+  "gemini-2-flash-search": {label: "Gemini 2.5 Flash Search", type: "search", in: 0.1, out: 0.4, web: 0.0},
+  "gpt-4o-chat": {label: "GPT-4o Chat", type: "chat", in: 2.5, out: 10.0, web: 0.0},
+  "claude-sonnet-chat": {label: "Claude Sonnet Chat", type: "chat", in: 3.0, out: 15.0, web: 0.0},
+  "gemini-2-flash-chat": {label: "Gemini 2.5 Flash Chat", type: "chat", in: 0.1, out: 0.4, web: 0.0},
 };
+/* MODELS:GEN:END */
 const modelType = id => (MODELS[id]?.type) || "search";
 const modelLabel = id => (MODELS[id]?.label) || id;
 function estCost(r){

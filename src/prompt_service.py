@@ -1,6 +1,6 @@
 """CRUD service per i prompt + statistiche aggregate.
 
-Usato sia da CLI/script che dalla dashboard Streamlit.
+Usato da CLI/script e dal dispatcher GitHub Actions (scripts/gh_action.py).
 """
 from __future__ import annotations
 

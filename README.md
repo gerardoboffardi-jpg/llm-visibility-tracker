@@ -1,6 +1,6 @@
 # LLM Visibility Tracker
 
-Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle risposte degli LLM con **web search attivo**: Perplexity (sonar / sonar-pro), OpenAI (gpt-4o-search-preview), Anthropic (Claude Sonnet 4.5 + tool `web_search_20250305`), Google (Gemini 2.0 + `google_search` grounding).
+Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle risposte degli LLM con **web search attivo**: Perplexity (sonar / sonar-pro), OpenAI (gpt-4o-search-preview), Anthropic (Claude Sonnet 4.5 + tool `web_search_20250305`), Google (Gemini 2.5 Flash + `google_search` grounding).
 
 **Metrica chiave**: `citation_rate` = % di risposte in cui il dominio target è citato come fonte.
 
@@ -9,7 +9,7 @@ Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle
 Niente più Streamlit. Stack statico + serverless:
 
 ```
-Sito statico (docs/index.html) — GitHub Pages
+Sito statico (docs/index.html) — greenhouse.talentgarden (SSO org)
    │  READ  → Supabase (Postgres) via REST + chiave anon (RLS read-only)
    │  WRITE → webhook n8n
    ▼
@@ -21,7 +21,7 @@ GitHub Actions (.github/workflows/visibility-actions.yml)
 Supabase  ← unica fonte di verità
 ```
 
-- **Sito pubblico**: https://gerardoboffardi-jpg.github.io/llm-visibility-tracker/ (8 tab, read-only velocissimo, niente login)
+- **Sito interno**: https://greenhouse.talentgarden.com/gerardo-boffardi/llm-visibility-tracker (8 tab, read-only velocissimo, accesso SSO Talent Garden)
 - **Azioni di scrittura** (rilancia/elimina/aggiungi/genera/piano SEO): bottoni del sito → n8n → GitHub Actions → Supabase
 - **DB**: Supabase Postgres (pooler `aws-1-eu-central-1`)
 
@@ -33,6 +33,7 @@ Supabase  ← unica fonte di verità
 | `python -m scripts.run_single_prompt --prompt-id 5 --repeat 3` | Esegue un singolo prompt |
 | `python -m scripts.run_batch --repeat 3` | Esegue tutti i prompt attivi su tutti i modelli abilitati |
 | `python -m scripts.gh_action` | Dispatcher azioni (usato da GitHub Actions; legge env `PAYLOAD`) |
+| `python -m scripts.gen_models` | Rigenera il blocco `MODELS` in `docs/index.html` da `config/models.yaml` (`--check` per CI) |
 | `pytest` | Esegue i test |
 
 Setup locale: `pip install -r requirements-api.txt`, poi `cp .env.example .env` e inserisci le API key + `DATABASE_URL`.
@@ -57,13 +58,13 @@ llm-visibility-tracker/
 │   ├── alerting.py          # detection drop + Slack webhook
 │   ├── api.py               # FastAPI (opzionale, integrazione n8n/Zapier/HubSpot)
 │   └── providers/           # adapter Perplexity / OpenAI search / Claude search / Gemini search
-├── docs/                    # Sito statico (GitHub Pages): index.html SPA multi-tab
-├── scripts/                 # CLI + gh_action.py (dispatcher GitHub Actions)
+├── docs/                    # Sito statico (greenhouse SSO): index.html SPA multi-tab
+├── scripts/                 # CLI + gh_action.py (dispatcher Actions) + gen_models.py
 ├── tests/                   # test (pytest)
-└── .github/workflows/       # visibility-actions.yml (repository_dispatch + cron)
+└── .github/workflows/       # visibility-actions.yml (azioni on-demand) + biweekly_batch.yml (cron)
 ```
 
-## Sito (GitHub Pages)
+## Sito (greenhouse.talentgarden, SSO)
 
 Single-file `docs/index.html` (Tailwind + Chart.js + supabase-js via CDN, brand TAG coral + Poppins). Legge in sola lettura da Supabase; le azioni di scrittura passano dai webhook n8n. 8 tab con navigazione client-side istantanea:
 
@@ -81,8 +82,10 @@ Single-file `docs/index.html` (Tailwind + Chart.js + supabase-js via CDN, brand 
 ### 1. Supabase (DB)
 Tabelle create + RLS con policy `SELECT` per ruolo `anon` (sola lettura). Il sito usa la **publishable key**; le scritture passano dalle GitHub Actions via `DATABASE_URL` (pooler, bypassa RLS).
 
-### 2. GitHub Pages (sito)
-Pages servito da `main` cartella `/docs`. URL: `https://gerardoboffardi-jpg.github.io/llm-visibility-tracker/`.
+### 2. greenhouse.talentgarden (sito)
+App interna `LLM Visibility Tracker` (id 53), accesso **SSO org-only**. URL: `https://greenhouse.talentgarden.com/gerardo-boffardi/llm-visibility-tracker`.
+
+**Deploy del sito**: non è auto-deploy da git (a differenza del vecchio GitHub Pages). Dopo aver modificato `docs/index.html` (o rigenerato il blocco `MODELS`), ricaricare il file su greenhouse — via piattaforma interna greenhouse (MCP `prepare_cli_upload` / `push_file`, app id 53). Nota storica: prima il sito era su GitHub Pages (`gerardoboffardi-jpg.github.io/llm-visibility-tracker`), ora dismesso.
 
 ### 3. GitHub Actions (motore azioni)
 `visibility-actions.yml` su `repository_dispatch (type: visibility)` + `workflow_dispatch`. Secret repo: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `PERPLEXITY_API_KEY`, `DATABASE_URL`.
@@ -94,16 +97,19 @@ Il sito posta `{action: "run-batch"|"delete"|"create"|"generate"|"seo-plan", ...
 
 ## Automazione
 
-### GitHub Actions (settimanale)
+### GitHub Actions (biweekly)
 
-Il workflow `.github/workflows/weekly_batch.yml` esegue il batch ogni **lunedì alle 06:00 UTC**.
+Il workflow `.github/workflows/biweekly_batch.yml` parte ogni **lunedì alle 06:00 UTC** (`cron: '0 6 * * 1'`) ma un job `gate` esegue il batch **solo nelle settimane ISO pari** → cadenza effettiva **ogni 2 settimane** (per contenere i costi API). `workflow_dispatch` forza sempre l'esecuzione.
 
 **Setup secrets** (Settings → Secrets and variables → Actions):
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `PERPLEXITY_API_KEY`
 - `SLACK_WEBHOOK_URL` (opzionale, per alerting)
 
-Il DB SQLite è salvato come **artifact** tra le run (retention 90 giorni).
-Per uso in produzione consigliato **DB esterno** (Postgres su Supabase/Neon) — modifica `DATABASE_URL` in env.
+Scrive su **Supabase Postgres** (env `DATABASE_URL`), unica fonte di verità. Nota storica: le prime versioni salvavano un DB SQLite come artifact tra le run — ora superato da Supabase.
+
+### Supabase Keep-Alive (lun + gio)
+
+`.github/workflows/supabase_keepalive.yml` fa un ping REST leggero al DB **due volte a settimana** (nessuna chiamata LLM, costo zero). Serve perché i progetti Supabase **free vanno in pausa dopo ~7 giorni di inattività**: con il batch biweekly (14 gg) la DB si ripauserebbe tra una run e l'altra. Girando lun+gio, l'intervallo tra due richieste resta sempre < 7 giorni. Se il progetto è già in pausa il ping fallisce (serve un **Restore** manuale dalla dashboard Supabase). URL + publishable key sono valori pubblici (come nel sito); sovrascrivibili con le repo Variables `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
 
 ### Cron locale (alternativa)
 
@@ -146,8 +152,8 @@ Auth: opzionale via `API_TOKEN` in env (header `X-Api-Key`). Se non settato, l'A
 
 ## Costi stimati
 
-- ~$20-30 per run completa con 50 prompt × 5 modelli × 3 ripetizioni
-- ~$80-120/mese con cadenza settimanale
+- ~$15-25 per run completa con 30 prompt × 8 modelli × 3 ripetizioni
+- ~$30-50/mese con cadenza biweekly (2 run/mese)
 - Nota: Anthropic addebita ~$10 per 1000 ricerche web extra
 
 ## Sviluppo / contribuire

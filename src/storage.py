@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -23,19 +22,15 @@ load_dotenv(override=False)  # le env var di shell hanno precedenza su .env
 
 
 def _resolve_database_url() -> str:
-    """Priorità: env var DATABASE_URL > Streamlit secrets > SQLite locale.
+    """Priorità: env var DATABASE_URL > SQLite locale.
+
+    In produzione `DATABASE_URL` punta a Supabase Postgres (impostata come secret
+    nelle GitHub Actions); in locale si usa il file SQLite `llm_visibility.db`.
 
     Normalizza eventuali `postgres://` (formato Heroku/Supabase URI) in
     `postgresql+psycopg://` richiesto da SQLAlchemy 2 + psycopg3.
     """
     url = os.getenv("DATABASE_URL")
-    if not url:
-        # Tenta Streamlit secrets se siamo in contesto Streamlit
-        try:
-            import streamlit as st  # type: ignore
-            url = st.secrets.get("DATABASE_URL")  # type: ignore[attr-defined]
-        except Exception:
-            url = None
     if not url:
         default_path = Path(__file__).resolve().parent.parent / "llm_visibility.db"
         return f"sqlite:///{default_path}"
@@ -151,6 +146,25 @@ class CompetitorDomain(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     brand_name: Mapped[str] = mapped_column(String(128), index=True)
     domain: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+
+
+class SeoPlan(Base):
+    """Piano SEO/GEO (AEO) generato via LLM e salvato per la dashboard.
+
+    `prompt_id` nullable: NULL = piano globale, valorizzato = piano mirato al gap
+    di quel prompt. Scritto da `scripts/gh_action._generate_seo_plan`, letto dal
+    sito (tab Recommendations). In produzione la tabella vive su Supabase; questo
+    modello serve a `init_db()` per crearla anche su SQLite locale.
+    """
+
+    __tablename__ = "seo_plans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    model_used: Mapped[str | None] = mapped_column(String(64))
+    prompt_id: Mapped[int | None] = mapped_column(ForeignKey("prompts.id"), index=True)
+    title: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 engine = create_engine(DATABASE_URL, echo=False, future=True)

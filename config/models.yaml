@@ -2,8 +2,14 @@
 # I prezzi sono in USD per 1M token (pubblicati dai provider al 2025).
 # web_search_price è il costo extra per ricerca web, dove applicabile.
 # Se mancano, il calcolo costo userà 0 (sarà comunque consistente, solo sottostimato).
+#
+# `label` = nome mostrato nella dashboard. Questo file è l'UNICA fonte del registro
+# modelli: dopo ogni modifica rigenerare il blocco MODELS nel sito con
+#   python -m scripts.gen_models
+# (aggiorna docs/index.html tra i marker MODELS:GEN).
 
 - id: perplexity-sonar
+  label: Perplexity Sonar
   provider: perplexity
   model: sonar
   web_search: true
@@ -14,6 +20,7 @@
   web_search_price: 0.005      # USD per query
 
 - id: perplexity-sonar-pro
+  label: Perplexity Sonar Pro
   provider: perplexity
   model: sonar-pro
   web_search: true
@@ -24,6 +31,7 @@
   web_search_price: 0.005
 
 - id: gpt-4o-search
+  label: GPT-4o Search
   provider: openai
   model: gpt-4o-search-preview
   web_search: true
@@ -34,6 +42,7 @@
   web_search_price: 0.030      # ~$30/1k query secondo OpenAI
 
 - id: gpt-4o-mini-search
+  label: GPT-4o mini Search
   provider: openai
   model: gpt-4o-mini-search-preview
   web_search: true
@@ -44,6 +53,7 @@
   web_search_price: 0.025
 
 - id: claude-sonnet-search
+  label: Claude Sonnet Search
   provider: anthropic
   model: claude-sonnet-4-5
   web_search: true
@@ -54,6 +64,7 @@
   web_search_price: 0.010      # $10/1k ricerche web Anthropic
 
 - id: gemini-2-flash-search
+  label: Gemini 2.5 Flash Search
   provider: gemini
   model: gemini-2.5-flash
   web_search: true
@@ -71,6 +82,7 @@
 # ---------------------------------------------------------------------
 
 - id: gpt-4o-chat
+  label: GPT-4o Chat
   provider: openai
   model: gpt-4o
   web_search: false
@@ -81,6 +93,7 @@
   web_search_price: 0.000
 
 - id: claude-sonnet-chat
+  label: Claude Sonnet Chat
   provider: anthropic
   model: claude-sonnet-4-5
   web_search: false
@@ -91,6 +104,7 @@
   web_search_price: 0.000
 
 - id: gemini-2-flash-chat
+  label: Gemini 2.5 Flash Chat
   provider: gemini
   model: gemini-2.5-flash
   web_search: false

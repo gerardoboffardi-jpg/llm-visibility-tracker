@@ -7,6 +7,4 @@ venv/
 .pytest_cache/
 .DS_Store
 *.log
-.streamlit/secrets.toml
-!.streamlit/secrets.toml.example
 .sentiment_cache.json
