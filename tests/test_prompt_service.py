@@ -5,7 +5,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src import storage
 from src.storage import Base, Response, Run
 from src import prompt_service as ps
 

@@ -20,7 +20,6 @@ import json
 import os
 import re
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from typing import Literal
 
 import requests
@@ -186,7 +185,7 @@ def generate_prompts_with_claude(
     """Chiama Anthropic Claude e ritorna (lista prompt, raw response)."""
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise RuntimeError(
-            "ANTHROPIC_API_KEY non impostato. Configura `.env` o Streamlit secrets."
+            "ANTHROPIC_API_KEY non impostato. Configura `.env` o i secret CI."
         )
 
     import anthropic
@@ -233,7 +232,7 @@ def generate_prompts_with_openai(
     """Fallback: usa OpenAI (più economico) se ANTHROPIC non è disponibile."""
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError(
-            "OPENAI_API_KEY non impostato. Configura `.env` o Streamlit secrets."
+            "OPENAI_API_KEY non impostato. Configura `.env` o i secret CI."
         )
     import openai
 

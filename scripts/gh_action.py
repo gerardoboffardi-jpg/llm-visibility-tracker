@@ -136,7 +136,7 @@ def _generate_seo_plan(payload: dict) -> None:
                 "altri_domini_citati": [f"{o[0]} ({o[1]})" for o in other],
             }
             user = (
-                f"Gap di visibilità di Talent Garden su questo specifico prompt utente:\n"
+                "Gap di visibilità di Talent Garden su questo specifico prompt utente:\n"
                 + _json.dumps(ctx, ensure_ascii=False, indent=2)
                 + "\n\nScrivi un PIANO SEO/GEO (AEO) MIRATO a questo singolo prompt, in ITALIANO markdown: "
                 "perché gli LLM non citano talentgarden.com qui, quali contenuti creare per questo intento, "

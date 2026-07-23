@@ -7,8 +7,8 @@ Autenticazione — due modalità:
 1. **Vertex AI + ADC** (Application Default Credentials): impostare
    `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`.
    In locale le credenziali arrivano da `gcloud auth application-default login`
-   (lo script setup_adc.sh). Su Streamlit Cloud si passa il JSON del service
-   account come secret `GCP_SERVICE_ACCOUNT_JSON`: viene scritto su file e
+   (lo script setup_adc.sh). In CI (GitHub Actions) si passa il JSON del service
+   account come secret/env `GCP_SERVICE_ACCOUNT_JSON`: viene scritto su file e
    esposto via `GOOGLE_APPLICATION_CREDENTIALS`.
 2. **API key** (fallback): `GOOGLE_API_KEY`.
 """
@@ -27,25 +27,17 @@ from src.providers.base import Citation, LLMProvider, LLMResponse, ProviderError
 
 
 def _cfg(key: str, default: str | None = None) -> str | None:
-    """Legge una config da env var, con fallback su st.secrets (Streamlit Cloud
-    non espone i secrets come env var automaticamente)."""
+    """Legge una config da env var."""
     val = os.getenv(key)
     if val:
         return val
-    try:
-        import streamlit as st  # type: ignore
-        v = st.secrets.get(key)  # type: ignore[attr-defined]
-        if v:
-            return str(v)
-    except Exception:  # noqa: BLE001
-        pass
     return default
 
 
 def _ensure_adc_credentials() -> None:
-    """Su Streamlit Cloud non si può fare `gcloud auth`: se è presente il JSON
-    del service account (secret/env `GCP_SERVICE_ACCOUNT_JSON`), lo scrive su un
-    file temporaneo e imposta GOOGLE_APPLICATION_CREDENTIALS per ADC."""
+    """Se è presente il JSON del service account (env `GCP_SERVICE_ACCOUNT_JSON`),
+    lo scrive su un file temporaneo e imposta GOOGLE_APPLICATION_CREDENTIALS per ADC.
+    Utile in CI (GitHub Actions), dove non si può fare `gcloud auth`."""
     if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
         return  # già configurato (es. ADC locale)
     sa_json = _cfg("GCP_SERVICE_ACCOUNT_JSON")

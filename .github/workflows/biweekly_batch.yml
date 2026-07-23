@@ -46,6 +46,9 @@ jobs:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # Scrive su Supabase Postgres (unica fonte di verità letta dal sito).
+      # Senza questo, il batch scriverebbe su un SQLite locale invisibile alla dashboard.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     steps:
       - name: Checkout
@@ -54,7 +57,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
@@ -62,37 +65,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Restore DB from previous run (best-effort)
-        uses: actions/download-artifact@v4
-        with:
-          name: llm-visibility-db
-          path: .
-        continue-on-error: true
-
-      - name: Seed DB if missing
-        run: |
-          if [ ! -f llm_visibility.db ]; then
-            echo "DB non trovato: eseguo seed iniziale"
-            python -m scripts.seed_db
-          else
-            echo "DB ripristinato dall'artifact precedente"
-            # Garantisce che eventuali nuovi prompt nel YAML siano aggiunti idempotentemente
-            python -m scripts.seed_db
-          fi
+      - name: Seed DB (idempotente — allinea prompt/competitor dal YAML)
+        run: python -m scripts.seed_db
 
       - name: Run batch with alerts
         run: |
           python -m scripts.run_batch_with_alerts \
             --repeat "${{ github.event.inputs.repeat || '3' }}"
-
-      - name: Upload DB snapshot
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: llm-visibility-db
-          path: llm_visibility.db
-          retention-days: 90
-          overwrite: true
 
       - name: Upload run summary
         if: always()
