@@ -9,7 +9,7 @@ Monitora la presenza di **talentgarden.com** (e del brand "Talent Garden") nelle
 Niente più Streamlit. Stack statico + serverless:
 
 ```
-Sito statico (docs/index.html) — GitHub Pages
+Sito statico (docs/index.html) — greenhouse.talentgarden (SSO org)
    │  READ  → Supabase (Postgres) via REST + chiave anon (RLS read-only)
    │  WRITE → webhook n8n
    ▼
@@ -21,7 +21,7 @@ GitHub Actions (.github/workflows/visibility-actions.yml)
 Supabase  ← unica fonte di verità
 ```
 
-- **Sito pubblico**: https://gerardoboffardi-jpg.github.io/llm-visibility-tracker/ (8 tab, read-only velocissimo, niente login)
+- **Sito interno**: https://greenhouse.talentgarden.com/gerardo-boffardi/llm-visibility-tracker (8 tab, read-only velocissimo, accesso SSO Talent Garden)
 - **Azioni di scrittura** (rilancia/elimina/aggiungi/genera/piano SEO): bottoni del sito → n8n → GitHub Actions → Supabase
 - **DB**: Supabase Postgres (pooler `aws-1-eu-central-1`)
 
@@ -58,13 +58,13 @@ llm-visibility-tracker/
 │   ├── alerting.py          # detection drop + Slack webhook
 │   ├── api.py               # FastAPI (opzionale, integrazione n8n/Zapier/HubSpot)
 │   └── providers/           # adapter Perplexity / OpenAI search / Claude search / Gemini search
-├── docs/                    # Sito statico (GitHub Pages): index.html SPA multi-tab
+├── docs/                    # Sito statico (greenhouse SSO): index.html SPA multi-tab
 ├── scripts/                 # CLI + gh_action.py (dispatcher Actions) + gen_models.py
 ├── tests/                   # test (pytest)
 └── .github/workflows/       # visibility-actions.yml (azioni on-demand) + biweekly_batch.yml (cron)
 ```
 
-## Sito (GitHub Pages)
+## Sito (greenhouse.talentgarden, SSO)
 
 Single-file `docs/index.html` (Tailwind + Chart.js + supabase-js via CDN, brand TAG coral + Poppins). Legge in sola lettura da Supabase; le azioni di scrittura passano dai webhook n8n. 8 tab con navigazione client-side istantanea:
 
@@ -82,8 +82,10 @@ Single-file `docs/index.html` (Tailwind + Chart.js + supabase-js via CDN, brand 
 ### 1. Supabase (DB)
 Tabelle create + RLS con policy `SELECT` per ruolo `anon` (sola lettura). Il sito usa la **publishable key**; le scritture passano dalle GitHub Actions via `DATABASE_URL` (pooler, bypassa RLS).
 
-### 2. GitHub Pages (sito)
-Pages servito da `main` cartella `/docs`. URL: `https://gerardoboffardi-jpg.github.io/llm-visibility-tracker/`.
+### 2. greenhouse.talentgarden (sito)
+App interna `LLM Visibility Tracker` (id 53), accesso **SSO org-only**. URL: `https://greenhouse.talentgarden.com/gerardo-boffardi/llm-visibility-tracker`.
+
+**Deploy del sito**: non è auto-deploy da git (a differenza del vecchio GitHub Pages). Dopo aver modificato `docs/index.html` (o rigenerato il blocco `MODELS`), ricaricare il file su greenhouse — via piattaforma interna greenhouse (MCP `prepare_cli_upload` / `push_file`, app id 53). Nota storica: prima il sito era su GitHub Pages (`gerardoboffardi-jpg.github.io/llm-visibility-tracker`), ora dismesso.
 
 ### 3. GitHub Actions (motore azioni)
 `visibility-actions.yml` su `repository_dispatch (type: visibility)` + `workflow_dispatch`. Secret repo: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `PERPLEXITY_API_KEY`, `DATABASE_URL`.
