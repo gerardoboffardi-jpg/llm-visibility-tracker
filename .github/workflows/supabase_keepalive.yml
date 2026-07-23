@@ -1,0 +1,39 @@
+name: Supabase Keep-Alive
+
+# I progetti Supabase free vanno in pausa dopo ~7 giorni di inattività.
+# Il batch è biweekly (14 gg) → da solo NON basta a tenere vivo il progetto.
+# Questo workflow fa un ping REST leggero (nessuna chiamata LLM, costo zero)
+# due volte a settimana, così l'intervallo tra due richieste resta < 7 giorni.
+#
+# Prevenzione, non recovery: se il progetto è GIÀ in pausa questo ping fallisce
+# e va fatto un "Restore" manuale dalla dashboard Supabase. Girando lun+gio,
+# però, il progetto non dovrebbe mai arrivare a 7 giorni di inattività.
+
+on:
+  schedule:
+    # lun e gio alle 05:00 UTC → gap massimo tra ping = 4 giorni (< 7)
+    - cron: '0 5 * * 1,4'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase REST (previene la pausa da inattività)
+        env:
+          # Valori PUBBLICI (stessi del sito docs/index.html): URL progetto +
+          # publishable key anon read-only. Nessun segreto. Sovrascrivibili con
+          # le repo Variables SUPABASE_URL / SUPABASE_ANON_KEY se preferisci.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qbcmnqfnaixbhbuwfgdf.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || 'sb_publishable_faBNmujDvlzyKB5b6SydgA_kOnEvTU5' }}
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/prompts?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY")
+          echo "Ping Supabase → HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Keep-alive fallito (HTTP $code). Il progetto potrebbe essere in pausa: fai Restore dalla dashboard Supabase."
+            exit 1
+          fi
+          echo "✓ Progetto attivo, pausa da inattività evitata."

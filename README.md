@@ -107,6 +107,10 @@ Il workflow `.github/workflows/biweekly_batch.yml` parte ogni **lunedì alle 06:
 
 Scrive su **Supabase Postgres** (env `DATABASE_URL`), unica fonte di verità. Nota storica: le prime versioni salvavano un DB SQLite come artifact tra le run — ora superato da Supabase.
 
+### Supabase Keep-Alive (lun + gio)
+
+`.github/workflows/supabase_keepalive.yml` fa un ping REST leggero al DB **due volte a settimana** (nessuna chiamata LLM, costo zero). Serve perché i progetti Supabase **free vanno in pausa dopo ~7 giorni di inattività**: con il batch biweekly (14 gg) la DB si ripauserebbe tra una run e l'altra. Girando lun+gio, l'intervallo tra due richieste resta sempre < 7 giorni. Se il progetto è già in pausa il ping fallisce (serve un **Restore** manuale dalla dashboard Supabase). URL + publishable key sono valori pubblici (come nel sito); sovrascrivibili con le repo Variables `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
+
 ### Cron locale (alternativa)
 
 ```cron
