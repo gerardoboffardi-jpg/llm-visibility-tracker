@@ -180,7 +180,7 @@ def generate_prompts_with_claude(
     *,
     source_type: Literal["url", "pdf"],
     source_label: str,
-    model: str = "claude-sonnet-4-5",
+    model: str = "claude-sonnet-5",
 ) -> tuple[list[GeneratedPrompt], str]:
     """Chiama Anthropic Claude e ritorna (lista prompt, raw response)."""
     if not os.getenv("ANTHROPIC_API_KEY"):
@@ -201,6 +201,7 @@ def generate_prompts_with_claude(
     resp = client.messages.create(
         model=model,
         max_tokens=4000,
+        thinking={"type": "disabled"},  # Sonnet 5: niente thinking, serve solo il JSON dei prompt
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
     )
@@ -328,7 +329,7 @@ def _run(
                 prompts, raw = generate_prompts_with_claude(
                     text, source_type=source_type, source_label=source_label,
                 )
-                model = "claude-sonnet-4-5"
+                model = "claude-sonnet-5"
             else:
                 prompts, raw = generate_prompts_with_openai(
                     text, source_type=source_type, source_label=source_label,

@@ -1,5 +1,5 @@
 # LLM Visibility — config modelli con pricing per cost tracking.
-# I prezzi sono in USD per 1M token (pubblicati dai provider al 2025).
+# I prezzi sono in USD per 1M token (aggiornati ai listini provider di luglio 2026).
 # web_search_price è il costo extra per ricerca web, dove applicabile.
 # Se mancano, il calcolo costo userà 0 (sarà comunque consistente, solo sottostimato).
 #
@@ -31,31 +31,31 @@
   web_search_price: 0.005
 
 - id: gpt-4o-search
-  label: GPT-4o Search
+  label: GPT-5.6 Terra Search
   provider: openai
-  model: gpt-4o-search-preview
+  model: gpt-5.6-terra
   web_search: true
   priority: high
   enabled: true
   input_price_per_1m: 2.50
-  output_price_per_1m: 10.00
-  web_search_price: 0.030      # ~$30/1k query secondo OpenAI
+  output_price_per_1m: 15.00
+  web_search_price: 0.010      # Responses API web_search: ~$10/1k call
 
 - id: gpt-4o-mini-search
-  label: GPT-4o mini Search
+  label: GPT-5.6 Luna Search
   provider: openai
-  model: gpt-4o-mini-search-preview
+  model: gpt-5.6-luna
   web_search: true
   priority: medium
   enabled: false
-  input_price_per_1m: 0.15
-  output_price_per_1m: 0.60
-  web_search_price: 0.025
+  input_price_per_1m: 1.00
+  output_price_per_1m: 6.00
+  web_search_price: 0.010
 
 - id: claude-sonnet-search
-  label: Claude Sonnet Search
+  label: Claude Sonnet 5 Search
   provider: anthropic
-  model: claude-sonnet-4-5
+  model: claude-sonnet-5
   web_search: true
   priority: high
   enabled: true
@@ -64,9 +64,9 @@
   web_search_price: 0.010      # $10/1k ricerche web Anthropic
 
 - id: gemini-2-flash-search
-  label: Gemini 2.5 Flash Search
+  label: Gemini 3.6 Flash Search
   provider: gemini
-  model: gemini-2.5-flash
+  model: gemini-3.6-flash
   web_search: true
   priority: high
   enabled: true
@@ -82,20 +82,20 @@
 # ---------------------------------------------------------------------
 
 - id: gpt-4o-chat
-  label: GPT-4o Chat
+  label: GPT-5.6 Terra Chat
   provider: openai
-  model: gpt-4o
+  model: gpt-5.6-terra
   web_search: false
   priority: medium
   enabled: true
   input_price_per_1m: 2.50
-  output_price_per_1m: 10.00
+  output_price_per_1m: 15.00
   web_search_price: 0.000
 
 - id: claude-sonnet-chat
-  label: Claude Sonnet Chat
+  label: Claude Sonnet 5 Chat
   provider: anthropic
-  model: claude-sonnet-4-5
+  model: claude-sonnet-5
   web_search: false
   priority: medium
   enabled: true
@@ -104,9 +104,9 @@
   web_search_price: 0.000
 
 - id: gemini-2-flash-chat
-  label: Gemini 2.5 Flash Chat
+  label: Gemini 3.6 Flash Chat
   provider: gemini
-  model: gemini-2.5-flash
+  model: gemini-3.6-flash
   web_search: false
   priority: medium
   enabled: true

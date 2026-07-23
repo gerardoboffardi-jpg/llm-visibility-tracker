@@ -1,7 +1,7 @@
 # Dipendenze runtime installate da GitHub Actions (visibility-actions.yml) e dalla
 # mini-API FastAPI opzionale (src/api.py). NIENTE Streamlit.
 anthropic>=0.39.0
-openai>=1.54.0
+openai>=1.66.0
 google-genai>=0.3.0
 requests>=2.32.0
 pydantic>=2.9.0

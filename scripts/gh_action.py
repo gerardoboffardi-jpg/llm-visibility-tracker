@@ -168,9 +168,10 @@ def _generate_seo_plan(payload: dict) -> None:
 
     import anthropic
     client = anthropic.Anthropic()
-    model = "claude-sonnet-4-5"
+    model = "claude-sonnet-5"
     resp = client.messages.create(
         model=model, max_tokens=2000,
+        thinking={"type": "disabled"},  # Sonnet 5: evita che il thinking eroda i 2000 token del piano
         system="Sei un consulente senior SEO/GEO esperto di come gli LLM scelgono e citano le fonti. Scrivi piani concreti e prioritizzati.",
         messages=[{"role": "user", "content": user}],
     )

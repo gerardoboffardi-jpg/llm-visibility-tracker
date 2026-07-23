@@ -6,7 +6,10 @@ target:
     - "TAG"
     - "talentgarden"
     - "Talent-Garden"
-  additional_domains: []
+    - "Innovation School"
+  # Sub-brand TAG: le citazioni a questo dominio contano come visibilità TAG.
+  additional_domains:
+    - "innovationschool.it"
 
 competitors:
   - name: "WeWork"
@@ -24,9 +27,6 @@ competitors:
   - name: "Impact Hub"
     aliases: ["Impact Hub"]
     domains: ["impacthub.net", "milan.impacthub.net"]
-  - name: "Talent Garden Innovation School"
-    aliases: ["Innovation School"]
-    domains: ["innovationschool.it"]
   - name: "H-FARM"
     aliases: ["H-FARM", "HFARM"]
     domains: ["h-farm.com", "hfarm.com"]
