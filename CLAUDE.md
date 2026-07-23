@@ -22,8 +22,9 @@ Sito statico (docs/index.html)  →  hostato su greenhouse.talentgarden (SSO org
    │  WRITE → webhook n8n → GitHub API repository_dispatch
    ▼
 GitHub Actions
-   ├── visibility-actions.yml  → azioni on-demand (scripts/gh_action.py)
-   └── biweekly_batch.yml       → batch schedulato (settimane ISO pari)
+   ├── visibility-actions.yml   → azioni on-demand (scripts/gh_action.py)
+   ├── biweekly_batch.yml       → batch schedulato (settimane ISO pari)
+   └── supabase_keepalive.yml   → ping REST lun+gio (evita la pausa free-tier)
    ▼
 Supabase Postgres  ← unica fonte di verità (env DATABASE_URL)
 ```
@@ -60,6 +61,19 @@ Supabase Postgres  ← unica fonte di verità (env DATABASE_URL)
 - **Modificare prompt seed**: editare `config/seed_prompts.yaml` e ri-eseguire `python -m scripts.seed_db` (idempotente, appende i mancanti).
 - **Run batch**: in produzione `--repeat 3` (smoothing), in dev `--repeat 1`.
 - **Sito**: single-file, si apre localmente da browser; punta a Supabase di produzione.
+
+## Operatività (deploy & infra)
+
+- **Deploy del sito = MANUALE** (non più auto-deploy come il vecchio GitHub Pages). Dopo ogni modifica a `docs/index.html`:
+  1. se hai toccato i modelli, `python -m scripts.gen_models`;
+  2. commit + merge su `main` (sorgente di verità);
+  3. **ridistribuisci su greenhouse** — app **id 53** (`LLM Visibility Tracker`), via MCP greenhouse `prepare_cli_upload` (zip con `index.html` a root) → `curl upload` → publish. Solo dopo l'upload il sito live cambia.
+- **URL sito**: `https://greenhouse.talentgarden.com/gerardo-boffardi/llm-visibility-tracker` (SSO org-only). Il vecchio GitHub Pages è dismesso.
+- **Supabase free-tier va in pausa dopo ~7 gg di inattività.** Il `supabase_keepalive.yml` (lun+gio) lo previene. Se la dashboard dà *"errore caricamento dati"* o *"Could not find table public.prompts"*:
+  1. controlla lo stato progetto (`ref` `qbcmnqfnaixbhbuwfgdf`) via Supabase Management API o dashboard;
+  2. se `INACTIVE` → **Restore** (dashboard o `POST /v1/projects/{ref}/restore`);
+  3. dopo il restore ricarica la schema cache PostgREST: `notify pgrst, 'reload schema';`.
+- **MCP Supabase**: richiede un **personal access token `sbp_…`** (non una `sb_secret_…`, che è una chiave API di progetto). Config in `.mcp.json`/`~/.claude.json` con `--project-ref=qbcmnqfnaixbhbuwfgdf`. La Management API (`api.supabase.com`) è raggiungibile col token `sbp_`; il subdominio `*.supabase.co` del progetto può non risolvere da alcuni ambienti sandbox.
 
 ## Cosa NON fare
 
