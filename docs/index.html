@@ -86,6 +86,17 @@
   .toast .toast-close:hover{opacity:1}
   @keyframes toast-in{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* Stampa / Export PDF: nasconde chrome e controlli, espande gli slider */
+  @media print{
+    .sidebar,.toast-host{display:none!important}
+    .main{margin-left:0;padding:0}
+    .btn,.sbtn,.subtab,.chip,select,input,textarea,.slider-hint{display:none!important}
+    .hscroll{overflow:visible;flex-wrap:wrap}
+    .hcard{flex:0 0 auto;min-width:0;max-width:100%}
+    .card,.resp-md,.hcard{break-inside:avoid}
+    .resp-md{max-height:none!important;overflow:visible!important}
+    a{text-decoration:none;color:var(--ink)}
+  }
 </style>
 </head>
 <body>
@@ -102,6 +113,7 @@
   <div style="margin-top:auto;padding:12px 8px 4px;border-top:1px solid var(--line);font-size:.72rem;color:var(--muted)">
     <div id="lastLoad">—</div>
     <button class="btn" style="margin-top:8px;width:100%;justify-content:center" onclick="loadAll(true)">↻ Aggiorna dati</button>
+    <button class="btn" style="margin-top:6px;width:100%;justify-content:center" onclick="window.print()" title="Esporta la vista corrente in PDF (stampa)">🖨 Esporta PDF</button>
   </div>
 </nav>
 
@@ -319,12 +331,15 @@ function drawDomain(){
     options:{responsive:true,maintainAspectRatio:false,cutout:"58%",plugins:{legend:{position:"bottom"}}}});
 }
 function drawTrend(){
-  const by={}; DATA.responses.forEach(r=>{const day=(r.created_at||"").slice(0,10); if(!day)return;(by[day]??={n:0,c:0});by[day].n++; if(r.has_target_citation)by[day].c++;});
+  const by={}; DATA.responses.forEach(r=>{const day=(r.created_at||"").slice(0,10); if(!day)return;(by[day]??={n:0,c:0,m:0});by[day].n++; if(r.has_target_citation)by[day].c++; if(r.has_target_mention)by[day].m++;});
   const days=Object.keys(by).sort(); const ctx=document.getElementById("chTrend"); if(!ctx)return;
   _charts.trend?.destroy();
-  _charts.trend=new Chart(ctx,{type:"line",data:{labels:days,datasets:[{label:"Citation rate",
-    data:days.map(d=>by[d].c/by[d].n),borderColor:"#FF5F00",backgroundColor:"#FFE0D4",fill:true,tension:.3}]},
-    options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+"%"}}},plugins:{legend:{display:false}}}});
+  _charts.trend=new Chart(ctx,{type:"line",data:{labels:days,datasets:[
+    {label:"Citation rate",data:days.map(d=>by[d].c/by[d].n),borderColor:"#FF5F00",backgroundColor:"#FFE0D4",fill:true,tension:.3},
+    {label:"Mention rate",data:days.map(d=>by[d].m/by[d].n),borderColor:"#64748B",backgroundColor:"transparent",borderDash:[5,4],fill:false,tension:.3}]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+"%"}}},
+      plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+": "+(c.parsed.y*100).toFixed(0)+"%"}}}}});
 }
 
 function tabPrompts(){
@@ -436,6 +451,23 @@ function respCard(r){
     </div>`;
 }
 window.scrollSlider = (btn,dir)=>{ const sc=btn.closest('[data-modelrow]').querySelector('.hscroll'); sc.scrollBy({left:dir*sc.clientWidth,behavior:'smooth'}); };
+// Riga per-modello con slider orizzontale delle card. Condivisa tra tabRisposte e tabDetail.
+// opts: countLabel (stringa già pluralizzata), cardHtml (fn r→html), wrapClass ("" nel feed, "card" nel detail).
+function modelSliderRow(mid, list, {countLabel, cardHtml, wrapClass=""}){
+  const n=list.length;
+  const slider = n>1
+    ? `<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${n} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`
+    : "";
+  return `<div data-modelrow class="${wrapClass}" style="margin-bottom:${wrapClass?'12px':'18px'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        ${modelChip(mid)}
+        <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
+        <span class="muted" style="font-size:.8rem">${countLabel}</span>
+        ${slider}
+      </div>
+      <div class="hscroll">${list.map(cardHtml).join("")}</div>
+    </div>`;
+}
 window.renderFeed = function(){
   const m=document.getElementById("fModel")?.value, ty=document.getElementById("fType")?.value, pid=document.getElementById("fPrompt")?.value;
   let rs = DATA.responses.slice();
@@ -448,18 +480,11 @@ window.renderFeed = function(){
   // Raggruppa per modello → slider orizzontale delle card
   const groups={}; rs.forEach(r=>{(groups[r.model_id] ??= []).push(r);});
   const ids=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
-  document.getElementById("feed").innerHTML = ids.length? ids.map(mid=>{
-    const list=groups[mid];
-    return `<div data-modelrow style="margin-bottom:18px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        ${modelChip(mid)}
-        <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
-        <span class="muted" style="font-size:.8rem">${list.length} rispost${list.length===1?'a':'e'}</span>
-        ${list.length>1?`<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${list.length} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`:''}
-      </div>
-      <div class="hscroll">${list.map(respCard).join("")}</div>
-    </div>`;
-  }).join("") : `<div class="card muted">Nessuna risposta con questi filtri.</div>`;
+  document.getElementById("feed").innerHTML = ids.length? ids.map(mid=>
+    modelSliderRow(mid, groups[mid], {
+      countLabel:`${groups[mid].length} rispost${groups[mid].length===1?'a':'e'}`,
+      cardHtml: respCard,
+    })).join("") : `<div class="card muted">Nessuna risposta con questi filtri.</div>`;
 };
 
 function tabDetail(){
@@ -481,18 +506,13 @@ function tabDetail(){
      ${kpiCard("💬 Mention rate", pct1(n?rs.filter(x=>x.has_target_mention).length/n:0), "")}
      ${kpiCard("📊 # risposte", n, n?"su "+Object.keys(byModel).length+" modelli":"")}
    </div>
-   ${Object.entries(byModel).map(([mid,list])=>`
-     <div data-modelrow class="card" style="margin-bottom:12px">
-       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-         ${modelChip(mid)}
-         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
-         <span class="muted" style="font-size:.82rem">${list.length} ripetizion${list.length===1?'e':'i'}</span>
-         ${list.length>1?`<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${list.length} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`:''}
-       </div>
-       <div class="hscroll">${list.map(r=>`<div class="hcard" style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:14px">
+   ${Object.entries(byModel).map(([mid,list])=> modelSliderRow(mid, list, {
+       wrapClass:"card",
+       countLabel:`${list.length} ripetizion${list.length===1?'e':'i'}`,
+       cardHtml: r=>`<div class="hcard" style="border-left:3px solid ${r.has_target_citation?'#16A34A':r.has_target_mention?'#F97316':'#E2E8F0'};padding-left:14px">
          <div class="muted" style="font-size:.74rem;margin-bottom:4px">${fmtDate(r.created_at)} ${r.has_target_citation?'· ⭐ citato':r.has_target_mention?'· 💬 menzionato':''}</div>
-         <div class="resp-md" style="max-height:340px">${mdText(r.text)}</div></div>`).join("")}</div>
-     </div>`).join("") || `<div class="card muted">Nessuna risposta per questo prompt.</div>`}`;
+         <div class="resp-md" style="max-height:340px">${mdText(r.text)}</div></div>`,
+     })).join("") || `<div class="card muted">Nessuna risposta per questo prompt.</div>`}`;
 }
 
 function tabModels(){
@@ -659,7 +679,8 @@ window.actionCreate = async ()=>{
       toast(`⚠️ Prompt già inserito (#${dup.id}). Controlla nella lista o apri <a href="#/detail?p=${dup.id}" style="color:inherit;text-decoration:underline;font-weight:700">Prompt Detail</a>.`, "error", 8000);
       return;
     }
-    if(await callN8n(N8N.create,{action:"create",text,category:np_cat.value||null,geo:np_geo.value||null,intent:np_int.value||null},"Aggiungi")){
+    const val=id=>document.getElementById(id)?.value||null;
+    if(await callN8n(N8N.create,{action:"create",text,category:val("np_cat"),geo:val("np_geo"),intent:val("np_int")},"Aggiungi")){
       scheduleRefresh(30, "Refresh");
     }
   } finally { busyRelease("create"); } };
@@ -671,8 +692,9 @@ window.actionSeoPlan = async ()=>{
       scheduleRefresh(75, "Piano pronto tra");
     }
   } finally { busyRelease("seo"); } };
-window.genTab = t => { gen_url_box.style.display = t==='url'?'flex':'none'; gen_pdf_box.style.display = t==='pdf'?'flex':'none';
-  gtab_url.classList.toggle('active',t==='url'); gtab_pdf.classList.toggle('active',t==='pdf'); };
+window.genTab = t => { const $=id=>document.getElementById(id);
+  $("gen_url_box").style.display = t==='url'?'flex':'none'; $("gen_pdf_box").style.display = t==='pdf'?'flex':'none';
+  $("gtab_url").classList.toggle('active',t==='url'); $("gtab_pdf").classList.toggle('active',t==='pdf'); };
 window.actionGenerate = async ()=>{
   if(!busyGuard("genurl")) return; try {
     const url=document.getElementById("gen_url").value.trim(); if(!url)return alert("Inserisci un URL.");
