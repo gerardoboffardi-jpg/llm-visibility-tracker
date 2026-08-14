@@ -75,6 +75,18 @@
   .slider-hint{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--coral-dark);background:var(--coral-soft);padding:5px 12px;border-radius:99px;border:1px solid var(--coral-border)}
   .tag-hit{background:#DCFCE7;color:#15803D;font-weight:600;padding:0 4px;border-radius:4px}
   .hidden{display:none}
+  /* Griglie riutilizzabili (sostituiscono gli stili inline, così le media query possono collassarle) */
+  .kpi-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid-3t{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .hero{background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:26px 34px;margin-bottom:22px}
+  /* Topbar mobile + backdrop drawer (nascosti su desktop) */
+  .topbar{display:none;position:fixed;top:0;left:0;right:0;height:56px;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid var(--line);z-index:800}
+  .hamb{background:none;border:none;font-size:1.6rem;line-height:1;cursor:pointer;color:var(--ink);padding:2px 8px;border-radius:8px}
+  .hamb:active{background:var(--coral-soft)}
+  .backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:900}
+  .backdrop.show{display:block}
   .toast-host{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:9999;pointer-events:none;max-width:calc(100vw - 48px)}
   .toast{display:flex;align-items:flex-start;gap:10px;min-width:280px;max-width:440px;padding:12px 14px;border-radius:12px;background:#fff;border:1.5px solid var(--line);box-shadow:0 10px 28px -10px rgba(15,23,42,.28);font-size:.88rem;font-weight:500;color:var(--ink);pointer-events:auto;animation:toast-in .22s ease-out}
   .toast.loading{border-color:var(--coral-border);background:var(--coral-soft);color:var(--coral-dark)}
@@ -86,8 +98,30 @@
   .toast .toast-close:hover{opacity:1}
   @keyframes toast-in{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* ===== RESPONSIVE — tablet & mobile ===== */
+  @media (max-width:900px){
+    .topbar{display:flex}
+    .sidebar{transform:translateX(-100%);transition:transform .25s ease;width:270px;z-index:1000;box-shadow:0 18px 50px -12px rgba(15,23,42,.35)}
+    .sidebar.open{transform:translateX(0)}
+    .main{margin-left:0;padding:74px 16px 32px}
+    .grid-2{grid-template-columns:1fr}
+    .kpi-4{grid-template-columns:repeat(2,1fr)}
+    .kpi-3{grid-template-columns:repeat(2,1fr)}
+    .hero{padding:24px 20px;border-radius:14px}
+    .hcard{flex:0 0 88%;min-width:88%;max-width:88%}
+  }
+  @media (max-width:560px){
+    .main{padding:70px 12px 28px}
+    .kpi-4,.kpi-3{grid-template-columns:1fr}
+    .grid-3t{grid-template-columns:1fr}
+    .kpi-value{font-size:1.6rem}
+    .hcard{flex:0 0 100%;min-width:100%;max-width:100%}
+    .toast-host{left:12px;right:12px;bottom:12px}
+    .toast{min-width:0;max-width:100%}
+  }
   /* Stampa / Export PDF: nasconde chrome e controlli, espande gli slider */
   @media print{
+    .topbar,.backdrop{display:none!important}
     .sidebar,.toast-host{display:none!important}
     .main{margin-left:0;padding:0}
     .btn,.sbtn,.subtab,.chip,select,input,textarea,.slider-hint{display:none!important}
@@ -101,6 +135,14 @@
 </head>
 <body>
 <div id="toastHost" class="toast-host"></div>
+
+<!-- TOPBAR (solo mobile) -->
+<header class="topbar">
+  <button class="hamb" onclick="toggleSidebar()" aria-label="Apri menu">☰</button>
+  <img src="https://business.talentgarden.com/wp-content/uploads/2026/03/cropped-tag-logo-hor.png" alt="Talent Garden" style="height:22px;width:auto" />
+  <span style="font-weight:700;font-size:.9rem">LLM Visibility</span>
+</header>
+<div id="backdrop" class="backdrop" onclick="toggleSidebar(false)"></div>
 
 <!-- SIDEBAR -->
 <nav class="sidebar">
@@ -300,18 +342,18 @@ function tabOverview(){
   const k = globalKpis();
   const c = document.getElementById("content");
   c.innerHTML = `
-   <div style="background:linear-gradient(135deg,#fff,#FFF7F3);border:1px solid var(--coral-border);border-radius:18px;padding:34px 40px;margin-bottom:22px">
+   <div class="hero">
      <div class="eyebrow" style="margin-bottom:10px">LLM Visibility · Talent Garden</div>
-     <h1 style="font-size:clamp(2.1rem,3.4vw,3.1rem);font-weight:800;margin:0 0 10px;line-height:1.08">Quanto è visibile Talent Garden nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
-     <p class="muted" style="font-size:1.05rem;line-height:1.55;margin:0">Monitoriamo se <b>ChatGPT, Perplexity, Claude e Gemini</b> citano <b>talentgarden.com</b> quando rispondono a domande reali su coworking, formazione e innovation — e dove invece vincono i competitor.</p>
+     <h1 style="font-size:clamp(1.6rem,2.4vw,2.3rem);font-weight:800;margin:0 0 8px;line-height:1.12">Quanto è visibile Talent Garden nelle risposte degli <span style="color:var(--coral)">LLM</span>?</h1>
+     <p class="muted" style="font-size:.98rem;line-height:1.55;margin:0;max-width:760px">Monitoriamo se <b>ChatGPT, Perplexity, Claude e Gemini</b> citano <b>talentgarden.com</b> quando rispondono a domande reali su coworking, formazione e innovation — e dove invece vincono i competitor.</p>
    </div>
-   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
+   <div class="kpi-4" style="margin-bottom:22px">
      ${kpiCard("⭐ Citation rate", pct1(k.citation_rate), k.n_responses+" risposte · "+k.n_prompts+" prompt", "var(--coral)")}
      ${kpiCard("💬 Mention rate", pct1(k.mention_rate), "Brand citato nel testo")}
      ${kpiCard("📊 Share of citations", pct1(k.share_of_citations), "Su "+k.n_total_citations+" citazioni")}
      ${kpiCard("⚠️ Citation gap", pct1(k.citation_gap), "Opportunità SEO", "var(--orange)")}
    </div>
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+   <div class="grid-2">
      <div class="card">${sectionHeader("Citazioni","Domain mix","Target vs competitor vs altri")}<div style="position:relative;height:240px"><canvas id="chDomain"></canvas></div></div>
      <div class="card">${sectionHeader("Andamento","Trend citation rate","Per giorno")}<div style="position:relative;height:240px"><canvas id="chTrend"></canvas></div></div>
    </div>`;
@@ -383,11 +425,11 @@ function promptsList(rows){
   </div>`;
 }
 function promptsAdd(){
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+  return `<div class="grid-2">
     <div class="card">${sectionHeader("Manuale","Aggiungi un prompt","")}
       <div style="display:flex;flex-direction:column;gap:10px">
         <textarea id="np_text" rows="3" placeholder="Es. Migliori coworking a Milano per startup"></textarea>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="grid-3t">
           <input id="np_cat" placeholder="categoria"><input id="np_geo" placeholder="geo"><input id="np_int" placeholder="intent">
         </div>
         <button class="btn btn-primary" onclick="actionCreate()">➕ Aggiungi prompt</button>
@@ -459,7 +501,7 @@ function modelSliderRow(mid, list, {countLabel, cardHtml, wrapClass=""}){
     ? `<span style="flex:1"></span><span class="slider-hint">↔ Scorri le ${n} ripetizioni</span><button class="sbtn" onclick="scrollSlider(this,-1)" title="Precedente">‹</button><button class="sbtn" onclick="scrollSlider(this,1)" title="Successiva">›</button>`
     : "";
   return `<div data-modelrow class="${wrapClass}" style="margin-bottom:${wrapClass?'12px':'18px'}">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         ${modelChip(mid)}
         <span class="pill ${modelType(mid)==='chat'?'pill-slate':'pill-coral'}">${modelType(mid)==='chat'?'chat':'search'}</span>
         <span class="muted" style="font-size:.8rem">${countLabel}</span>
@@ -501,7 +543,7 @@ function tabDetail(){
      <select onchange="location.hash='#/detail?p='+this.value" style="font-size:1rem;padding:11px 14px;font-weight:500">${opts}</select>
      ${cur?`<div style="margin-top:12px;font-size:1.05rem;font-weight:600;color:var(--ink)">"${esc(cur.text)}"</div>`:""}
    </div>
-   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+   <div class="kpi-3" style="margin-bottom:18px">
      ${kpiCard("⭐ Citation rate", pct1(n?rs.filter(x=>x.has_target_citation).length/n:0), "", "var(--coral)")}
      ${kpiCard("💬 Mention rate", pct1(n?rs.filter(x=>x.has_target_mention).length/n:0), "")}
      ${kpiCard("📊 # risposte", n, n?"su "+Object.keys(byModel).length+" modelli":"")}
@@ -539,7 +581,7 @@ function tabCitations(){
   const d=domainMix();
   document.getElementById("content").innerHTML = sectionHeader("Citazioni","Citations","Da dove arrivano le fonti citate dagli LLM") +
    `<div class="infobox">🔗 Questa pagina mostra <b>quali siti web</b> gli LLM citano come fonte quando rispondono ai prompt monitorati. Misura quanto pesa <b>talentgarden.com</b> (target) rispetto ai <b>competitor</b> e ad <b>altri</b> domini: più alta è la quota target, più sei una fonte autorevole per i modelli.</div>
-   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+   <div class="kpi-3" style="margin-bottom:18px">
      ${kpiCard("🟢 Target", pct(d.total?d.target/d.total:0), d.target+" citazioni", "var(--green)")}
      ${kpiCard("🟠 Competitor", pct(d.total?d.competitor/d.total:0), d.competitor+" citazioni", "var(--orange)")}
      ${kpiCard("⚪ Altri", pct(d.total?d.other/d.total:0), d.other+" citazioni", "var(--slate)")}
@@ -591,12 +633,12 @@ function tabCosti(){
   const byModel={}; R.forEach(r=>{(byModel[r.model_id] ??= {n:0,c:0,tok:0});byModel[r.model_id].n++;byModel[r.model_id].c+=estCost(r);byModel[r.model_id].tok+=(r.tokens||0);});
   const byRun={}; R.forEach(r=>{(byRun[r.run_id] ??= {n:0,c:0,last:null});byRun[r.run_id].n++;byRun[r.run_id].c+=estCost(r);if(!byRun[r.run_id].last||r.created_at>byRun[r.run_id].last)byRun[r.run_id].last=r.created_at;});
   document.getElementById("content").innerHTML = sectionHeader("Spesa","Costi & Run","Stima USD basata sui token × pricing") +
-   `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+   `<div class="kpi-3" style="margin-bottom:18px">
      ${kpiCard("💰 Costo totale", "$"+tot.toFixed(3), R.length+" risposte", "var(--coral)")}
      ${kpiCard("🔄 Run", Object.keys(byRun).length, "esecuzioni")}
      ${kpiCard("📊 Costo/risposta", "$"+(R.length?tot/R.length:0).toFixed(4), "media")}
    </div>
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+   <div class="grid-2">
    <div class="card"><div style="font-weight:600;margin-bottom:8px">Per modello</div><table><thead><tr><th>Modello</th><th># risp</th><th>Token</th><th>Costo</th></tr></thead><tbody>
      ${Object.entries(byModel).sort((a,b)=>b[1].c-a[1].c).map(([m,v])=>`<tr><td style="display:flex;align-items:center;gap:7px">${modelBadge(m)}</td><td>${v.n}</td><td class="muted">${v.tok.toLocaleString()}</td><td>$${v.c.toFixed(4)}</td></tr>`).join("")}
    </tbody></table></div>
@@ -755,10 +797,20 @@ window.actionImportPdfPrompts = async ()=>{
     }
   } finally { busyRelease("pdfimp"); } };
 
+// ============ SIDEBAR MOBILE ============
+window.toggleSidebar = function(force){
+  const sb = document.querySelector(".sidebar"), bd = document.getElementById("backdrop");
+  if(!sb) return;
+  const open = force!==undefined ? force : !sb.classList.contains("open");
+  sb.classList.toggle("open", open);
+  if(bd) bd.classList.toggle("show", open);
+};
+
 // ============ ROUTER ============
 function route(){
   const id = (location.hash.replace("#/","").split("?")[0]) || "overview";
   renderNav(id);
+  toggleSidebar(false); // chiude il drawer dopo la navigazione (mobile)
   ({overview:tabOverview,prompts:tabPrompts,risposte:tabRisposte,detail:tabDetail,
     models:tabModels,citations:tabCitations,reco:tabReco,costi:tabCosti}[id]||tabOverview)();
 }
