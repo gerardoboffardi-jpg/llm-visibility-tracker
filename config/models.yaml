@@ -52,6 +52,18 @@
   output_price_per_1m: 6.00
   web_search_price: 0.010
 
+- id: gpt-5-sol-search
+  label: GPT-5.6 Sol Search
+  provider: openai
+  model: gpt-5.6-sol
+  web_search: true
+  priority: high
+  enabled: true
+  # NB: pricing placeholder = Terra, da verificare quando OpenAI pubblica il listino di Sol
+  input_price_per_1m: 2.50
+  output_price_per_1m: 15.00
+  web_search_price: 0.010
+
 - id: claude-sonnet-search
   label: Claude Sonnet 5 Search
   provider: anthropic
@@ -64,9 +76,9 @@
   web_search_price: 0.010      # $10/1k ricerche web Anthropic
 
 - id: gemini-2-flash-search
-  label: Gemini 3.6 Flash Search
+  label: Gemini 3.7 Flash Search
   provider: gemini
-  model: gemini-3.6-flash
+  model: gemini-3.7-flash
   web_search: true
   priority: high
   enabled: true
@@ -92,6 +104,18 @@
   output_price_per_1m: 15.00
   web_search_price: 0.000
 
+- id: gpt-5-sol-chat
+  label: GPT-5.6 Sol Chat
+  provider: openai
+  model: gpt-5.6-sol
+  web_search: false
+  priority: medium
+  enabled: true
+  # NB: pricing placeholder = Terra, da verificare quando OpenAI pubblica il listino di Sol
+  input_price_per_1m: 2.50
+  output_price_per_1m: 15.00
+  web_search_price: 0.000
+
 - id: claude-sonnet-chat
   label: Claude Sonnet 5 Chat
   provider: anthropic
@@ -104,9 +128,9 @@
   web_search_price: 0.000
 
 - id: gemini-2-flash-chat
-  label: Gemini 3.6 Flash Chat
+  label: Gemini 3.7 Flash Chat
   provider: gemini
-  model: gemini-3.6-flash
+  model: gemini-3.7-flash
   web_search: false
   priority: medium
   enabled: true

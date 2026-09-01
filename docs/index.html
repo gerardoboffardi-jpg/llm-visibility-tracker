@@ -184,11 +184,13 @@ const MODELS = {
   "perplexity-sonar-pro": {label: "Perplexity Sonar Pro", type: "search", in: 3.0, out: 15.0, web: 0.005},
   "gpt-4o-search": {label: "GPT-5.6 Terra Search", type: "search", in: 2.5, out: 15.0, web: 0.01},
   "gpt-4o-mini-search": {label: "GPT-5.6 Luna Search", type: "search", in: 1.0, out: 6.0, web: 0.01},
+  "gpt-5-sol-search": {label: "GPT-5.6 Sol Search", type: "search", in: 2.5, out: 15.0, web: 0.01},
   "claude-sonnet-search": {label: "Claude Sonnet 5 Search", type: "search", in: 3.0, out: 15.0, web: 0.01},
-  "gemini-2-flash-search": {label: "Gemini 3.6 Flash Search", type: "search", in: 0.1, out: 0.4, web: 0.0},
+  "gemini-2-flash-search": {label: "Gemini 3.7 Flash Search", type: "search", in: 0.1, out: 0.4, web: 0.0},
   "gpt-4o-chat": {label: "GPT-5.6 Terra Chat", type: "chat", in: 2.5, out: 15.0, web: 0.0},
+  "gpt-5-sol-chat": {label: "GPT-5.6 Sol Chat", type: "chat", in: 2.5, out: 15.0, web: 0.0},
   "claude-sonnet-chat": {label: "Claude Sonnet 5 Chat", type: "chat", in: 3.0, out: 15.0, web: 0.0},
-  "gemini-2-flash-chat": {label: "Gemini 3.6 Flash Chat", type: "chat", in: 0.1, out: 0.4, web: 0.0},
+  "gemini-2-flash-chat": {label: "Gemini 3.7 Flash Chat", type: "chat", in: 0.1, out: 0.4, web: 0.0},
 };
 /* MODELS:GEN:END */
 const modelType = id => (MODELS[id]?.type) || "search";
